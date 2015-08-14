@@ -46,8 +46,10 @@ struct ExtractionWay
 
     void clear()
     {
-        forward_speed = -1;
-        backward_speed = -1;
+        city_forward_speed = -1;
+        city_backward_speed = -1;
+        country_forward_speed = -1;
+        country_backward_speed = -1;
         duration = -1;
         roundabout = false;
         is_access_restricted = false;
@@ -115,8 +117,10 @@ struct ExtractionWay
     void set_backward_mode(const TravelMode m) { backward_travel_mode = m; }
     TravelMode get_backward_mode() const { return backward_travel_mode; }
 
-    double forward_speed;
-    double backward_speed;
+    double city_forward_speed;
+    double city_backward_speed;
+    double country_forward_speed;
+    double country_backward_speed;
     double duration;
     std::string name;
     bool roundabout;

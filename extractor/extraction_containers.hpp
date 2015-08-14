@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../data_structures/external_memory_node.hpp"
 #include "../data_structures/restriction.hpp"
 #include "../util/fingerprint.hpp"
+#include "BoundaryList.h"
 
 #include <stxxl/vector>
 
@@ -70,7 +71,8 @@ class ExtractionContainers
     ~ExtractionContainers();
 
     void PrepareData(const std::string &output_file_name,
-                     const std::string &restrictions_file_name);
+                     const std::string &restrictions_file_name,
+                     BoundaryList &boundaryList);
 };
 
 #endif /* EXTRACTION_CONTAINERS_HPP */

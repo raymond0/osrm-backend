@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 struct InternalExtractorEdge
 {
     InternalExtractorEdge()
-        : start(0), target(0), speed(0), name_id(0), direction(0), is_roundabout(false),
+        : start(0), target(0), city_speed(0), country_speed(0), name_id(0), direction(0), is_roundabout(false),
           is_in_tiny_cc(false), is_duration_set(false), is_access_restricted(false),
           is_split(false), travel_mode(TRAVEL_MODE_INACCESSIBLE)
     {
@@ -47,7 +47,8 @@ struct InternalExtractorEdge
     explicit InternalExtractorEdge(NodeID start,
                                    NodeID target,
                                    short direction,
-                                   double speed,
+                                   double city_speed,
+                                   double country_speed,
                                    unsigned name_id,
                                    bool is_roundabout,
                                    bool is_in_tiny_cc,
@@ -55,7 +56,7 @@ struct InternalExtractorEdge
                                    bool is_access_restricted,
                                    TravelMode travel_mode,
                                    bool is_split)
-        : start(start), target(target), speed(speed), name_id(name_id), direction(direction),
+        : start(start), target(target), city_speed(city_speed), country_speed(country_speed), name_id(name_id), direction(direction),
           is_roundabout(is_roundabout), is_in_tiny_cc(is_in_tiny_cc),
           is_duration_set(is_duration_set), is_access_restricted(is_access_restricted),
           is_split(is_split), travel_mode(travel_mode)
@@ -65,18 +66,19 @@ struct InternalExtractorEdge
     // necessary static util functions for stxxl's sorting
     static InternalExtractorEdge min_value()
     {
-        return InternalExtractorEdge(0, 0, 0, 0, 0, false, false, false, false,
+        return InternalExtractorEdge(0, 0, 0, 0, 0, 0, false, false, false, false,
                                      TRAVEL_MODE_INACCESSIBLE, false);
     }
     static InternalExtractorEdge max_value()
     {
-        return InternalExtractorEdge(SPECIAL_NODEID, SPECIAL_NODEID, 0, 0, 0, false, false, false,
+        return InternalExtractorEdge(SPECIAL_NODEID, SPECIAL_NODEID, 0, 0, 0, 0, false, false, false,
                                      false, TRAVEL_MODE_INACCESSIBLE, false);
     }
 
     NodeID start;
     NodeID target;
-    double speed;
+    double city_speed;
+    double country_speed;
     unsigned name_id;
     short direction;
     bool is_roundabout : 1;

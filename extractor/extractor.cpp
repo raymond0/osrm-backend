@@ -63,6 +63,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include "BoundaryList.h"
 
 /**
  * TODO: Refactor this function into smaller functions for better readability.
@@ -86,6 +87,11 @@ int extractor::run(const ExtractorConfig &extractor_config)
 {
     try
     {
+        std::ifstream densityIn;
+        densityIn.open( "/Users/ray/projects/atomicrabbit/maptools/maps/gb-ire-nl-boundaries.bin" );
+        BoundaryList boundaryList;
+        boundaryList.ReadDensityTree( densityIn );
+        
         LogPolicy::GetInstance().Unmute();
         TIMER_START(extracting);
 
@@ -237,7 +243,8 @@ int extractor::run(const ExtractorConfig &extractor_config)
         }
 
         extraction_containers.PrepareData(extractor_config.output_file_name,
-                                          extractor_config.restriction_file_name);
+                                          extractor_config.restriction_file_name,
+                                          boundaryList);
         TIMER_STOP(extracting);
         SimpleLogger().Write() << "extraction finished after " << TIMER_SEC(extracting) << "s";
         SimpleLogger().Write() << "To prepare the data for routing, run: "

@@ -88,9 +88,9 @@ void ExtractorCallbacks::ProcessRestriction(
  */
 void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const ExtractionWay &parsed_way)
 {
-    if (((0 >= parsed_way.forward_speed) ||
+    if (((0 >= parsed_way.city_forward_speed) ||
          (TRAVEL_MODE_INACCESSIBLE == parsed_way.forward_travel_mode)) &&
-        ((0 >= parsed_way.backward_speed) ||
+        ((0 >= parsed_way.city_backward_speed) ||
          (TRAVEL_MODE_INACCESSIBLE == parsed_way.backward_travel_mode)) &&
         (0 >= parsed_way.duration))
     { // Only true if the way is specified by the speed profile
@@ -112,13 +112,13 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
     {
         // TODO: iterate all way segments and set duration corresponding to the length of each
         // segment
-        const_cast<ExtractionWay &>(parsed_way).forward_speed =
+        const_cast<ExtractionWay &>(parsed_way).city_forward_speed =
             parsed_way.duration / (input_way.nodes().size() - 1);
-        const_cast<ExtractionWay &>(parsed_way).backward_speed =
+        const_cast<ExtractionWay &>(parsed_way).city_backward_speed =
             parsed_way.duration / (input_way.nodes().size() - 1);
     }
 
-    if (std::numeric_limits<double>::epsilon() >= std::abs(-1. - parsed_way.forward_speed))
+    if (std::numeric_limits<double>::epsilon() >= std::abs(-1. - parsed_way.city_forward_speed))
     {
         SimpleLogger().Write(logDEBUG) << "found way with bogus speed, id: " << input_way.id();
         return;
@@ -137,11 +137,11 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
         name_id = string_map_iterator->second;
     }
 
-    const bool split_edge = (parsed_way.forward_speed > 0) &&
+    const bool split_edge = (parsed_way.city_forward_speed > 0) &&
                             (TRAVEL_MODE_INACCESSIBLE != parsed_way.forward_travel_mode) &&
-                            (parsed_way.backward_speed > 0) &&
+                            (parsed_way.city_backward_speed > 0) &&
                             (TRAVEL_MODE_INACCESSIBLE != parsed_way.backward_travel_mode) &&
-                            ((parsed_way.forward_speed != parsed_way.backward_speed) ||
+                            ((parsed_way.city_forward_speed != parsed_way.city_backward_speed) ||
                              (parsed_way.forward_travel_mode != parsed_way.backward_travel_mode));
 
     auto pair_wise_segment_split =
@@ -154,7 +154,7 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
             ((split_edge || TRAVEL_MODE_INACCESSIBLE == parsed_way.backward_travel_mode)
                  ? ExtractionWay::oneway
                  : ExtractionWay::bidirectional),
-            parsed_way.forward_speed, name_id, parsed_way.roundabout, parsed_way.ignore_in_grid,
+            parsed_way.city_forward_speed, parsed_way.country_forward_speed, name_id, parsed_way.roundabout, parsed_way.ignore_in_grid,
             (0 < parsed_way.duration), parsed_way.is_access_restricted,
             parsed_way.forward_travel_mode, split_edge));
         external_memory.used_node_id_list.push_back(first_node.ref());
@@ -194,7 +194,7 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
             // SimpleLogger().Write() << "adding edge (" << last_node.ref() << "," <<
             // first_node.ref() << "), bwd speed: " << parsed_way.backward_speed;
             external_memory.all_edges_list.push_back(InternalExtractorEdge(
-                last_node.ref(), first_node.ref(), ExtractionWay::oneway, parsed_way.backward_speed,
+                last_node.ref(), first_node.ref(), ExtractionWay::oneway, parsed_way.city_backward_speed, parsed_way.country_backward_speed,
                 name_id, parsed_way.roundabout, parsed_way.ignore_in_grid,
                 (0 < parsed_way.duration), parsed_way.is_access_restricted,
                 parsed_way.backward_travel_mode, split_edge));
