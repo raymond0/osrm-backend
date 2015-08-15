@@ -338,146 +338,22 @@ void ExtractionContainers::PrepareData(const std::string &output_file_name,
                 edge_iterator->target_coordinate.lon = node_iterator->lon;
                 
                 edgesToProcess.emplace_back(*edge_iterator);
+                
+                if ( edgesToProcess.size() >= 500000 )
+                {
+                    ProcessEdges(edgesToProcess, boundaryList, file_out_stream);
+                    edgesToProcess.clear();
+                }
 
                 ++number_of_used_edges;
             }
             ++edge_iterator;
         }
         
-        tbb::concurrent_vector<double> speedsToUse;
-        speedsToUse.resize(edgesToProcess.size());
+        ProcessEdges(edgesToProcess, boundaryList, file_out_stream);
+        edgesToProcess.clear();
         
-        tbb::parallel_for(tbb::blocked_range<size_t>( 0, edgesToProcess.size()), [&speedsToUse, edgesToProcess, boundaryList](const tbb::blocked_range<size_t> &range)
-        {
-            for (size_t i = range.begin(); i != range.end(); ++i)
-            {
-                auto actualEdge = edgesToProcess[ i ];
-                
-                auto boundary = boundaryList.SmallestBoundaryForFixedPointCoordinate(actualEdge.source_coordinate);
-                
-                auto speed_to_use = actualEdge.city_speed;
-                if ( boundary != nullptr )
-                {
-                    if ( boundary->IsProbablyOutOfTown() )
-                    {
-                        if ( actualEdge.country_speed != -1 )
-                        {
-                            speed_to_use = actualEdge.country_speed;
-                        }
-                        
-                        /*std::cout << "Found a country boundary, density: " << boundary->Density() <<
-                         " city speed: " << actualEdge.city_speed << " country speed: " << actualEdge.country_speed <<
-                         " distance: " << distance << "\n";*/
-                    }
-                    else
-                    {
-                        /*std::cout << "Found a city boundary, density: " << boundary->Density() <<
-                         " city speed: " << actualEdge.city_speed << " country speed: " << actualEdge.country_speed <<
-                         " distance: " << distance << "\n";*/
-                    }
-                }
-                else
-                {
-                    //std::cout << "Found NO boundary\n";
-                }
-                
-                speedsToUse[i] = speed_to_use;
-            }
-        });
 
-        /*for (auto actualEdge : edgesToProcess)
-        {
-
-            speedsToUse.emplace_back(speed_to_use);
-        }*/
-            // FIXME: This means we have a _minimum_ edge length of 1m
-            // maybe use dm as base unit?
-        
-        BOOST_ASSERT( edgesToProcess.size() == speedsToUse.size() );
-        
-        for ( size_t i = 0; i < edgesToProcess.size(); i++ )
-        {
-            auto actualEdge = edgesToProcess[i];
-            double speed_to_use = speedsToUse[i];
-            
-            const double distance = coordinate_calculation::euclidean_distance(
-                                                                               actualEdge.source_coordinate.lat, actualEdge.source_coordinate.lon,
-                                                                               actualEdge.target_coordinate.lat, actualEdge.target_coordinate.lon);
-            
-            const double weight = (distance * 10.) / (speed_to_use / 3.6);
-            /*int integer_weight = std::max(
-                                          1, (int)std::floor(
-                                                             (actualEdge.is_duration_set ? speed_to_use : weight) + .5));
-            */
-            int integer_weight = std::max(1, (int)std::floor(weight + 0.5));
-            
-            const int integer_distance = std::max(1, (int)distance);
-            const short zero = 0;
-            const short one = 1;
-            const bool yes = true;
-            const bool no = false;
-
-            file_out_stream.write((char *)&actualEdge.start, sizeof(unsigned));
-            file_out_stream.write((char *)&actualEdge.target, sizeof(unsigned));
-            file_out_stream.write((char *)&integer_distance, sizeof(int));
-            switch (actualEdge.direction)
-            {
-            case ExtractionWay::notSure:
-                file_out_stream.write((char *)&zero, sizeof(short));
-                break;
-            case ExtractionWay::oneway:
-                file_out_stream.write((char *)&one, sizeof(short));
-                break;
-            case ExtractionWay::bidirectional:
-                file_out_stream.write((char *)&zero, sizeof(short));
-                break;
-            case ExtractionWay::opposite:
-                file_out_stream.write((char *)&one, sizeof(short));
-                break;
-            default:
-                throw osrm::exception("edge has broken direction");
-            }
-
-            file_out_stream.write((char *)&integer_weight, sizeof(int));
-            file_out_stream.write((char *)&actualEdge.name_id, sizeof(unsigned));
-            if (actualEdge.is_roundabout)
-            {
-                file_out_stream.write((char *)&yes, sizeof(bool));
-            }
-            else
-            {
-                file_out_stream.write((char *)&no, sizeof(bool));
-            }
-            if (actualEdge.is_in_tiny_cc)
-            {
-                file_out_stream.write((char *)&yes, sizeof(bool));
-            }
-            else
-            {
-                file_out_stream.write((char *)&no, sizeof(bool));
-            }
-            if (actualEdge.is_access_restricted)
-            {
-                file_out_stream.write((char *)&yes, sizeof(bool));
-            }
-            else
-            {
-                file_out_stream.write((char *)&no, sizeof(bool));
-            }
-
-            // cannot take adress of bit field, so use local
-            const TravelMode travel_mode = actualEdge.travel_mode;
-            file_out_stream.write((char *)&travel_mode, sizeof(TravelMode));
-
-            if (actualEdge.is_split)
-            {
-                file_out_stream.write((char *)&yes, sizeof(bool));
-            }
-            else
-            {
-                file_out_stream.write((char *)&no, sizeof(bool));
-            }
-        }
         TIMER_STOP(set_target_coords);
         std::cout << "ok, after " << TIMER_SEC(set_target_coords) << "s" << std::endl;
 
@@ -525,5 +401,144 @@ void ExtractionContainers::PrepareData(const std::string &output_file_name,
     catch (const std::exception &e)
     {
         std::cerr << "Caught Execption:" << e.what() << std::endl;
+    }
+}
+
+
+void ExtractionContainers::ProcessEdges(std::vector<InternalExtractorEdge> &edgesToProcess, BoundaryList &boundaryList, std::ofstream &file_out_stream)
+{
+    tbb::concurrent_vector<double> speedsToUse;
+    speedsToUse.resize(edgesToProcess.size());
+    
+    tbb::parallel_for(tbb::blocked_range<size_t>( 0, edgesToProcess.size()), [&speedsToUse, edgesToProcess, boundaryList](const tbb::blocked_range<size_t> &range)
+    {
+        for (size_t i = range.begin(); i != range.end(); ++i)
+        {
+            auto actualEdge = edgesToProcess[ i ];
+          
+            auto boundary = boundaryList.SmallestBoundaryForFixedPointCoordinate(actualEdge.source_coordinate);
+          
+            auto speed_to_use = actualEdge.city_speed;
+            if ( boundary != nullptr )
+            {
+                if ( boundary->IsProbablyOutOfTown() )
+                {
+                    if ( actualEdge.country_speed != -1 )
+                    {
+                        speed_to_use = actualEdge.country_speed;
+                    }
+                  
+                    /*std::cout << "Found a country boundary, density: " << boundary->Density() <<
+                     " city speed: " << actualEdge.city_speed << " country speed: " << actualEdge.country_speed <<
+                     " distance: " << distance << "\n";*/
+                }
+                else
+                {
+                    /*std::cout << "Found a city boundary, density: " << boundary->Density() <<
+                     " city speed: " << actualEdge.city_speed << " country speed: " << actualEdge.country_speed <<
+                     " distance: " << distance << "\n";*/
+                }
+            }
+            else
+            {
+                //std::cout << "Found NO boundary\n";
+            }
+          
+            speedsToUse[i] = speed_to_use;
+        }
+    });
+    
+    /*for (auto actualEdge : edgesToProcess)
+     {
+     
+     speedsToUse.emplace_back(speed_to_use);
+     }*/
+    // FIXME: This means we have a _minimum_ edge length of 1m
+    // maybe use dm as base unit?
+    
+    BOOST_ASSERT( edgesToProcess.size() == speedsToUse.size() );
+    
+    for ( size_t i = 0; i < edgesToProcess.size(); i++ )
+    {
+        auto actualEdge = edgesToProcess[i];
+        double speed_to_use = speedsToUse[i];
+        
+        const double distance = coordinate_calculation::euclidean_distance(
+                                                                           actualEdge.source_coordinate.lat, actualEdge.source_coordinate.lon,
+                                                                           actualEdge.target_coordinate.lat, actualEdge.target_coordinate.lon);
+        
+        const double weight = (distance * 10.) / (speed_to_use / 3.6);
+        /*int integer_weight = std::max(
+         1, (int)std::floor(
+         (actualEdge.is_duration_set ? speed_to_use : weight) + .5));
+         */
+        int integer_weight = std::max(1, (int)std::floor(weight + 0.5));
+        
+        const int integer_distance = std::max(1, (int)distance);
+        const short zero = 0;
+        const short one = 1;
+        const bool yes = true;
+        const bool no = false;
+        
+        file_out_stream.write((char *)&actualEdge.start, sizeof(unsigned));
+        file_out_stream.write((char *)&actualEdge.target, sizeof(unsigned));
+        file_out_stream.write((char *)&integer_distance, sizeof(int));
+        switch (actualEdge.direction)
+        {
+            case ExtractionWay::notSure:
+                file_out_stream.write((char *)&zero, sizeof(short));
+                break;
+            case ExtractionWay::oneway:
+                file_out_stream.write((char *)&one, sizeof(short));
+                break;
+            case ExtractionWay::bidirectional:
+                file_out_stream.write((char *)&zero, sizeof(short));
+                break;
+            case ExtractionWay::opposite:
+                file_out_stream.write((char *)&one, sizeof(short));
+                break;
+            default:
+                throw osrm::exception("edge has broken direction");
+        }
+        
+        file_out_stream.write((char *)&integer_weight, sizeof(int));
+        file_out_stream.write((char *)&actualEdge.name_id, sizeof(unsigned));
+        if (actualEdge.is_roundabout)
+        {
+            file_out_stream.write((char *)&yes, sizeof(bool));
+        }
+        else
+        {
+            file_out_stream.write((char *)&no, sizeof(bool));
+        }
+        if (actualEdge.is_in_tiny_cc)
+        {
+            file_out_stream.write((char *)&yes, sizeof(bool));
+        }
+        else
+        {
+            file_out_stream.write((char *)&no, sizeof(bool));
+        }
+        if (actualEdge.is_access_restricted)
+        {
+            file_out_stream.write((char *)&yes, sizeof(bool));
+        }
+        else
+        {
+            file_out_stream.write((char *)&no, sizeof(bool));
+        }
+        
+        // cannot take adress of bit field, so use local
+        const TravelMode travel_mode = actualEdge.travel_mode;
+        file_out_stream.write((char *)&travel_mode, sizeof(TravelMode));
+        
+        if (actualEdge.is_split)
+        {
+            file_out_stream.write((char *)&yes, sizeof(bool));
+        }
+        else
+        {
+            file_out_stream.write((char *)&no, sizeof(bool));
+        }
     }
 }

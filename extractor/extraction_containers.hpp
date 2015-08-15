@@ -73,6 +73,9 @@ class ExtractionContainers
     void PrepareData(const std::string &output_file_name,
                      const std::string &restrictions_file_name,
                      BoundaryList &boundaryList);
+    
+private:
+    void ProcessEdges(std::vector<InternalExtractorEdge> &edgesToProcess, BoundaryList &boundaryList, std::ofstream &file_out_stream);
 };
 
 #endif /* EXTRACTION_CONTAINERS_HPP */
