@@ -9,6 +9,7 @@
 #include "BoundaryList.h"
 #include <iostream>
 #include <math.h>
+#include <limits.h>
 
 
 static coord coordFromDecimal( FixedPointCoordinate fpc )

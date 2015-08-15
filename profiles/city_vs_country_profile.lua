@@ -2,20 +2,20 @@
 --require("lib/access") --function temporarily inlined
 
 barrier_whitelist = { ["cattle_grid"] = true, ["border_control"] = true, ["checkpoint"] = true, ["toll_booth"] = true, ["sally_port"] = true, ["gate"] = true, ["lift_gate"] = true, ["no"] = true, ["entrance"] = true }
-access_tag_whitelist = { ["yes"] = true, ["motorcar"] = true, ["motor_vehicle"] = true, ["vehicle"] = true, ["permissive"] = true, ["designated"] = true }
+access_tag_whitelist = { ["yes"] = true, ["motorcycle"] = true, ["motorcar"] = true, ["motor_vehicle"] = true, ["vehicle"] = true, ["permissive"] = true, ["designated"] = true }
 access_tag_blacklist = { ["no"] = true, ["private"] = true, ["agricultural"] = true, ["forestry"] = true, ["emergency"] = true, ["psv"] = true }
 access_tag_restricted = { ["destination"] = true, ["delivery"] = true }
-access_tags = { "motorcar", "motor_vehicle", "vehicle" }
-access_tags_hierachy = { "motorcar", "motor_vehicle", "vehicle", "access" }
+access_tags = { "motorcycle", "motorcar", "motor_vehicle", "vehicle" }
+access_tags_hierachy = { "motorcycle", "motorcar", "motor_vehicle", "vehicle", "access" }
 service_tag_restricted = { ["parking_aisle"] = true }
 ignore_in_grid = { ["ferry"] = true }
-restriction_exception_tags = { "motorcar", "motor_vehicle", "vehicle" }
+restriction_exception_tags = { "motorcycle", "motorcar", "motor_vehicle", "vehicle" }
 
 speed_profile = {
-  ["motorway"] = 90,
-  ["motorway_link"] = 45,
-  ["trunk"] = 85,
-  ["trunk_link"] = 40,
+  ["motorway"] = 120,
+  ["motorway_link"] = 60,
+  ["trunk"] = 90,
+  ["trunk_link"] = 45,
   ["primary"] = 65,
   ["primary_link"] = 30,
   ["secondary"] = 55,

@@ -7,6 +7,7 @@
 //
 
 #include "Boundary.h"
+#include <limits.h>
 
 void
 coord_extend_bbox(struct rect *dest, struct coord &additional)

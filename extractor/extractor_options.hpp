@@ -46,6 +46,8 @@ struct ExtractorConfig
     boost::filesystem::path input_path;
     boost::filesystem::path profile_path;
 
+    boost::filesystem::path boundary_density_file_name;
+
     std::string output_file_name;
     std::string restriction_file_name;
     std::string timestamp_file_name;

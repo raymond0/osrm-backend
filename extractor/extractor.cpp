@@ -88,7 +88,7 @@ int extractor::run(const ExtractorConfig &extractor_config)
     try
     {
         std::ifstream densityIn;
-        densityIn.open( "/Users/ray/projects/atomicrabbit/maptools/maps/gb-ire-nl-boundaries.bin" );
+        densityIn.open( extractor_config.boundary_density_file_name.string() );
         BoundaryList boundaryList;
         boundaryList.ReadDensityTree( densityIn );
         
