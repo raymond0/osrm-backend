@@ -6,6 +6,7 @@
 //
 //
 
+#include "tbb/tbb.h"
 #include "Boundary.h"
 #include <limits.h>
 
@@ -197,7 +198,23 @@ double Boundary::Density()
 
 bool Boundary::IsProbablyOutOfTown()
 {
+    static tbb::atomic<size_t> country = 0, city = 0, count = 0;
+    
     double density = Density();
     // < 4.somehing-e06
-    return density <= 0.000004;
+    bool isCountry = density <= 0.000002;
+    
+    if ( isCountry )
+        country++;
+    else
+        city++;
+    
+    count++;
+    
+    if ( count % 10000 == 0 )
+    {
+        std::cout << "Country: " << country << ", city: " << city << "\n";
+    }
+        
+    return isCountry;
 }
