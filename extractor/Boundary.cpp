@@ -189,6 +189,31 @@ std::shared_ptr< Boundary > Boundary::SmallestBoundaryForCoordinate( const struc
 }
 
 
+bool Boundary::CoordinateIsInTown( const struct coord &c )
+{
+    if ( ! ContainsCoord( &c ) )
+    {
+        return false;
+    }
+    
+    if ( Density() >= 0.0000058887 )
+    {
+        return true;
+    }
+    
+    for ( auto childBoundary : childBoundaries )
+    {
+        if ( childBoundary->CoordinateIsInTown( c ) )
+        {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+
+
 double Boundary::Density()
 {
     double density = ((double) roadStartsInBoundary) / ((double) totalArea);

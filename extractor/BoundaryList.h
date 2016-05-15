@@ -20,7 +20,8 @@ class BoundaryList
 {
 public:
     void ReadDensityTree( std::ifstream &densityIn );
-    std::shared_ptr< Boundary > SmallestBoundaryForFixedPointCoordinate( const FixedPointCoordinate &fpc ) const;
+    //std::shared_ptr< Boundary > SmallestBoundaryForFixedPointCoordinate( const FixedPointCoordinate &fpc ) const;
+    bool FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc ) const;
     
 private:
     std::shared_ptr< Boundary > SmallestBoundaryForCoordinate( const struct coord &c ) const;

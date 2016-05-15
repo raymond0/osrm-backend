@@ -49,10 +49,26 @@ void BoundaryList::ReadDensityTree( std::ifstream &densityIn )
 }
 
 
-std::shared_ptr< Boundary > BoundaryList::SmallestBoundaryForFixedPointCoordinate( const FixedPointCoordinate &fpc ) const
+/*std::shared_ptr< Boundary > BoundaryList::SmallestBoundaryForFixedPointCoordinate( const FixedPointCoordinate &fpc ) const
 {
     struct coord c = coordFromDecimal( fpc );
     return SmallestBoundaryForCoordinate( c );
+}*/
+
+
+bool BoundaryList::FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc ) const
+{
+    struct coord c = coordFromDecimal( fpc );
+    
+    for ( auto countryBoundary : countries )
+    {
+        if ( countryBoundary->CoordinateIsInTown(c) )
+        {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 

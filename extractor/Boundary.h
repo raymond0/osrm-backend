@@ -28,6 +28,7 @@ public:
     Boundary( std::ifstream &densityIn );
     bool ContainsCoord( const struct coord *c );
     std::shared_ptr< Boundary > SmallestBoundaryForCoordinate( const struct coord &c );
+    bool CoordinateIsInTown( const struct coord &c );
     long long totalArea;
     unsigned roadStartsInBoundary;
     double Density();

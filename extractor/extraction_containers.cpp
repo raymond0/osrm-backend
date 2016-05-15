@@ -407,6 +407,8 @@ void ExtractionContainers::PrepareData(const std::string &output_file_name,
 
 void ExtractionContainers::ProcessEdges(std::vector<InternalExtractorEdge> &edgesToProcess, BoundaryList &boundaryList, std::ofstream &file_out_stream)
 {
+    static tbb::atomic<size_t> country = 0, city = 0, count = 0;
+
     tbb::concurrent_vector<double> speedsToUse;
     speedsToUse.resize(edgesToProcess.size());
     
@@ -416,33 +418,24 @@ void ExtractionContainers::ProcessEdges(std::vector<InternalExtractorEdge> &edge
         {
             auto actualEdge = edgesToProcess[ i ];
           
-            auto boundary = boundaryList.SmallestBoundaryForFixedPointCoordinate(actualEdge.source_coordinate);
-          
-            auto speed_to_use = actualEdge.city_speed;
-            if ( boundary != nullptr )
-            {
-                if ( boundary->IsProbablyOutOfTown() )
-                {
-                    if ( actualEdge.country_speed != -1 )
-                    {
-                        speed_to_use = actualEdge.country_speed;
-                    }
-                  
-                    /*std::cout << "Found a country boundary, density: " << boundary->Density() <<
-                     " city speed: " << actualEdge.city_speed << " country speed: " << actualEdge.country_speed <<
-                     " distance: " << distance << "\n";*/
-                }
-                else
-                {
-                    /*std::cout << "Found a city boundary, density: " << boundary->Density() <<
-                     " city speed: " << actualEdge.city_speed << " country speed: " << actualEdge.country_speed <<
-                     " distance: " << distance << "\n";*/
-                }
-            }
+            bool isInTown = boundaryList.FixedPointCoordinateIsInTown(actualEdge.source_coordinate);
+            
+            if ( isInTown )
+                city++;
             else
+                country++;
+            
+            count++;
+            
+            if ( count % 10000 == 0 )
             {
-                //std::cout << "Found NO boundary\n";
+                size_t countryTemp = country;
+                size_t cityTemp = city;
+                std::cout << "Country: " << countryTemp << ", city: " << cityTemp << "\n";
             }
+
+          
+            auto speed_to_use = isInTown ? actualEdge.city_speed : actualEdge.country_speed;
           
             speedsToUse[i] = speed_to_use;
         }
