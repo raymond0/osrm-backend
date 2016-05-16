@@ -44,6 +44,23 @@ Boundary::Boundary( std::ifstream &densityIn )
     densityIn.read((char *) &totalArea, sizeof(totalArea));
     totalArea = llabs(totalArea);
     densityIn.read((char *) &roadStartsInBoundary, sizeof(roadStartsInBoundary));
+    size_t strLen = 0;
+    densityIn.read((char *) &strLen, sizeof(strLen));
+    if ( strLen > 0 )
+    {
+        if ( strLen > 99 )
+        {
+            printf( "ERROR: iso code was over 99 bytes!!!\n" );
+            exit( 1 );
+        }
+        
+        char isoBuf[100];
+        densityIn.read(isoBuf, strLen);
+        isoBuf[strLen] = '\0';
+        isoCode = std::string(isoBuf);
+        
+        printf( "Read ISO code of length %ld: %s\n", strLen, isoBuf );
+    }
     
     bool first = true;
     
@@ -157,53 +174,21 @@ bool Boundary::ContainsCoord( const struct coord *c )
 }
 
 
-std::shared_ptr< Boundary > Boundary::SmallestBoundaryForCoordinate( const struct coord &c )
-{
-    if ( ! ContainsCoord( &c ) )
-    {
-        return nullptr;
-    }
-    
-    std::shared_ptr< Boundary > smallestBoundary = nullptr;
-    long long smallestArea = LLONG_MAX;
-    
-    for ( auto childBoundary : childBoundaries )
-    {
-        auto childSmallest = ( childBoundary->SmallestBoundaryForCoordinate( c ) );
-        
-        if( childSmallest == nullptr )
-            continue;
-        
-        auto childArea = childSmallest->totalArea;
-        if ( childArea < smallestArea )
-        {
-            smallestBoundary = childSmallest;
-            smallestArea = childArea;
-        }
-    }
-    
-    if ( smallestBoundary != nullptr )
-        return smallestBoundary;
-    
-    return shared_from_this();
-}
-
-
-bool Boundary::CoordinateIsInTown( const struct coord &c )
+bool Boundary::CoordinateIsInTown( const struct coord &c, const double townDensity )
 {
     if ( ! ContainsCoord( &c ) )
     {
         return false;
     }
     
-    if ( Density() >= 0.0000058887 )
+    if ( Density() >= townDensity )
     {
         return true;
     }
     
     for ( auto childBoundary : childBoundaries )
     {
-        if ( childBoundary->CoordinateIsInTown( c ) )
+        if ( childBoundary->CoordinateIsInTown( c, townDensity ) )
         {
             return true;
         }
@@ -220,26 +205,3 @@ double Boundary::Density()
     return density;
 }
 
-
-bool Boundary::IsProbablyOutOfTown()
-{
-    static tbb::atomic<size_t> country = 0, city = 0, count = 0;
-    
-    double density = Density();
-    // < 4.somehing-e06
-    bool isCountry = density <= 0.000002;
-    
-    if ( isCountry )
-        country++;
-    else
-        city++;
-    
-    count++;
-    
-    if ( count % 10000 == 0 )
-    {
-        std::cout << "Country: " << country << ", city: " << city << "\n";
-    }
-        
-    return isCountry;
-}

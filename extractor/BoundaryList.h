@@ -24,7 +24,6 @@ public:
     bool FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc ) const;
     
 private:
-    std::shared_ptr< Boundary > SmallestBoundaryForCoordinate( const struct coord &c ) const;
     std::vector< std::shared_ptr< Boundary > > countries;
 };
 

@@ -27,6 +27,40 @@ static coord coordFromDecimal( FixedPointCoordinate fpc )
 }
 
 
+typedef std::pair<std::string, double> DensityPair;
+
+std::vector <DensityPair> countryDensities = {
+    { "NL", 0.0000127158 },
+    { "BE", 0.0000080000 },
+    { "DE", 0.0000080000 },
+    { "JP", 0.0000140105 },
+    { "RU", 0.0000042000 }
+};
+
+const double defaultDensity = 0.0000058887;
+
+double DensityForIsoCode( std::string &isoCode )
+{
+    if ( isoCode.length() == 0 )
+    {
+        printf( "Country ISO code missing..." );
+        return defaultDensity;
+    }
+    
+    for ( auto pair : countryDensities )
+    {
+        if ( pair.first.compare(isoCode) == 0 )
+        {
+            printf( "Country ISO code %s has density %f", isoCode.c_str(), pair.second );
+            return pair.second;
+        }
+    }
+
+    printf( "Country ISO code %s has default density %f", isoCode.c_str(), defaultDensity );
+    return defaultDensity;
+}
+
+
 void BoundaryList::ReadDensityTree( std::ifstream &densityIn )
 {
     unsigned header = 0;
@@ -46,14 +80,13 @@ void BoundaryList::ReadDensityTree( std::ifstream &densityIn )
         std::shared_ptr<Boundary> boundary ( new Boundary( densityIn ) );
         countries.emplace_back(boundary);
     }
+    
+    for ( auto country : countries )
+    {
+        country->targetDensityForCountry = DensityForIsoCode( country->isoCode );
+    }
 }
 
-
-/*std::shared_ptr< Boundary > BoundaryList::SmallestBoundaryForFixedPointCoordinate( const FixedPointCoordinate &fpc ) const
-{
-    struct coord c = coordFromDecimal( fpc );
-    return SmallestBoundaryForCoordinate( c );
-}*/
 
 
 bool BoundaryList::FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc ) const
@@ -62,36 +95,11 @@ bool BoundaryList::FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc
     
     for ( auto countryBoundary : countries )
     {
-        if ( countryBoundary->CoordinateIsInTown(c) )
+        if ( countryBoundary->CoordinateIsInTown(c, countryBoundary->targetDensityForCountry) )
         {
             return true;
         }
     }
     
     return false;
-}
-
-
-std::shared_ptr< Boundary > BoundaryList::SmallestBoundaryForCoordinate( const struct coord &c ) const
-{
-    std::shared_ptr< Boundary > smallestBoundary = nullptr;
-    long long smallestArea = LLONG_MAX;
-    
-    for ( auto countryBoundary : countries )
-    {
-        auto countrySmallest = ( countryBoundary->SmallestBoundaryForCoordinate( c ) );
-        
-        if( countrySmallest == nullptr )
-            continue;
-        
-        auto childArea = countrySmallest->totalArea;
-        if ( childArea < smallestArea )
-        {
-            smallestBoundary = countrySmallest;
-            smallestArea = childArea;
-        }
-    }
-    
-    return smallestBoundary;
-    
 }

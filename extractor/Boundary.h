@@ -27,12 +27,12 @@ class Boundary : public std::enable_shared_from_this<Boundary>
 public:
     Boundary( std::ifstream &densityIn );
     bool ContainsCoord( const struct coord *c );
-    std::shared_ptr< Boundary > SmallestBoundaryForCoordinate( const struct coord &c );
-    bool CoordinateIsInTown( const struct coord &c );
+    bool CoordinateIsInTown( const struct coord &c, const double townDensity );
     long long totalArea;
     unsigned roadStartsInBoundary;
     double Density();
-    bool IsProbablyOutOfTown();
+    std::string isoCode;
+    double targetDensityForCountry;
     
 private:
     struct rect enclosingRect;
