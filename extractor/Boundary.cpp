@@ -59,7 +59,7 @@ Boundary::Boundary( std::ifstream &densityIn )
         isoBuf[strLen] = '\0';
         isoCode = std::string(isoBuf);
         
-        printf( "Read ISO code of length %ld: %s\n", strLen, isoBuf );
+        //printf( "Read ISO code of length %ld: %s\n", strLen, isoBuf );
     }
     
     bool first = true;

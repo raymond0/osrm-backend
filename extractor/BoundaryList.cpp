@@ -43,7 +43,7 @@ double DensityForIsoCode( std::string &isoCode )
 {
     if ( isoCode.length() == 0 )
     {
-        printf( "Country ISO code missing..." );
+        printf( "Country ISO code missing...\n" );
         return defaultDensity;
     }
     
@@ -51,12 +51,12 @@ double DensityForIsoCode( std::string &isoCode )
     {
         if ( pair.first.compare(isoCode) == 0 )
         {
-            printf( "Country ISO code %s has density %f", isoCode.c_str(), pair.second );
+            printf( "Country ISO code %s has density %f\n", isoCode.c_str(), pair.second );
             return pair.second;
         }
     }
 
-    printf( "Country ISO code %s has default density %f", isoCode.c_str(), defaultDensity );
+    printf( "Country ISO code %s has default density %f\n", isoCode.c_str(), defaultDensity );
     return defaultDensity;
 }
 
