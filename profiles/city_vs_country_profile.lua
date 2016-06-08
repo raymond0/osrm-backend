@@ -159,6 +159,8 @@ local obey_oneway               = true
 local obey_bollards             = true
 local ignore_areas              = true     -- future feature
 local u_turn_penalty            = 20
+local turn_penalty               = 20
+local turn_bias                  = 1.0
 
 local abs = math.abs
 local min = math.min
@@ -218,6 +220,15 @@ end
 --   -- print ("index: " .. index .. ", bias: " .. penalty )
 --   return penalty
 -- end
+function turn_function (angle)
+  ---- compute turn penalty as angle^2, with a left/right bias
+  k = turn_penalty/(90.0*90.0)
+  if angle>=0 then
+    return angle*angle*k/turn_bias
+  else
+    return angle*angle*k*turn_bias
+  end
+end
 
 function node_function (node, result)
   -- parse access and barrier tags
