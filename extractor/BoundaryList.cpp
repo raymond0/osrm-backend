@@ -30,14 +30,14 @@ static coord coordFromDecimal( FixedPointCoordinate fpc )
 typedef std::pair<std::string, double> DensityPair;
 
 std::vector <DensityPair> countryDensities = {
-    { "NL", 0.0000127158 },
-    { "BE", 0.0000080000 },
-    { "DE", 0.0000080000 },
-    { "JP", 0.0000121053 },
-    { "RU", 0.0000042000 }
+    { "NL", 0.0000160000 },
+    { "BE", 0.0000110000 },
+    { "DE", 0.0000110000 },
+    { "JP", 0.0000132947 },
+    { "RU", 0.0000060000 }
 };
 
-const double defaultDensity = 0.0000058887;
+const double defaultDensity = 0.0000084105;
 
 double DensityForIsoCode( std::string &isoCode )
 {
