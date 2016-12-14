@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include <cassert>
+#include <cstddef>
 #include <iterator>
 #include <iosfwd>
 #include <type_traits>
@@ -43,24 +44,24 @@ DEALINGS IN THE SOFTWARE.
 
 namespace osmium {
 
-    class Node;
-    class Way;
-    class Relation;
     class Area;
     class Changeset;
-    class OSMObject;
-    class OSMEntity;
-    class TagList;
-    class WayNodeList;
-    class RelationMemberList;
     class InnerRing;
+    class Node;
+    class OSMEntity;
+    class OSMObject;
     class OuterRing;
+    class Relation;
+    class RelationMemberList;
+    class TagList;
+    class Way;
+    class WayNodeList;
 
     namespace memory {
 
         namespace detail {
 
-            template <class T>
+            template <typename T>
             inline bool type_is_compatible(osmium::item_type) noexcept {
                 return true;
             }
@@ -127,20 +128,20 @@ namespace osmium {
 
         } // namespace detail
 
-        template <class TMember>
-        class ItemIterator : public std::iterator<std::forward_iterator_tag, TMember> {
+        template <typename TMember>
+        class ItemIterator {
 
             static_assert(std::is_base_of<osmium::memory::Item, TMember>::value, "TMember must derive from osmium::memory::Item");
 
             // This data_type is either 'unsigned char*' or 'const unsigned char*' depending
             // on whether TMember is const. This allows this class to be used as an iterator and
             // as a const_iterator.
-            typedef typename std::conditional<std::is_const<TMember>::value, const unsigned char*, unsigned char*>::type data_type;
+            using data_type = typename std::conditional<std::is_const<TMember>::value, const unsigned char*, unsigned char*>::type;
 
             data_type m_data;
             data_type m_end;
 
-            void advance_to_next_item_of_right_type() {
+            void advance_to_next_item_of_right_type() noexcept {
                 while (m_data != m_end &&
                        !detail::type_is_compatible<typename std::remove_const<TMember>::type>(reinterpret_cast<const osmium::memory::Item*>(m_data)->type())) {
                     m_data = reinterpret_cast<TMember*>(m_data)->next();
@@ -149,23 +150,29 @@ namespace osmium {
 
         public:
 
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = TMember;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = value_type*;
+            using reference         = value_type&;
+
             ItemIterator() noexcept :
                 m_data(nullptr),
                 m_end(nullptr) {
             }
 
-            ItemIterator(data_type data, data_type end) :
+            ItemIterator(data_type data, data_type end) noexcept :
                 m_data(data),
                 m_end(end) {
                 advance_to_next_item_of_right_type();
             }
 
-            template <class T>
-            ItemIterator<T> cast() const {
+            template <typename T>
+            ItemIterator<T> cast() const noexcept {
                 return ItemIterator<T>(m_data, m_end);
             }
 
-            ItemIterator<TMember>& operator++() {
+            ItemIterator<TMember>& operator++() noexcept {
                 assert(m_data);
                 assert(m_data != m_end);
                 m_data = reinterpret_cast<TMember*>(m_data)->next();
@@ -178,54 +185,136 @@ namespace osmium {
              * types. Do not use this unless you know what you are
              * doing.
              */
-            ItemIterator<TMember>& advance_once() {
+            ItemIterator<TMember>& advance_once() noexcept {
                 assert(m_data);
                 assert(m_data != m_end);
                 m_data = reinterpret_cast<TMember*>(m_data)->next();
                 return *static_cast<ItemIterator<TMember>*>(this);
             }
 
-            ItemIterator<TMember> operator++(int) {
+            ItemIterator<TMember> operator++(int) noexcept {
                 ItemIterator<TMember> tmp(*this);
                 operator++();
                 return tmp;
             }
 
-            bool operator==(const ItemIterator<TMember>& rhs) const {
+            bool operator==(const ItemIterator<TMember>& rhs) const noexcept {
                 return m_data == rhs.m_data && m_end == rhs.m_end;
             }
 
-            bool operator!=(const ItemIterator<TMember>& rhs) const {
+            bool operator!=(const ItemIterator<TMember>& rhs) const noexcept {
                 return !(*this == rhs);
             }
 
-            unsigned char* data() const {
+            data_type data() noexcept {
                 assert(m_data);
                 return m_data;
             }
 
-            TMember& operator*() const {
+            const unsigned char* data() const noexcept {
+                assert(m_data);
+                return m_data;
+            }
+
+            TMember& operator*() const noexcept {
                 assert(m_data);
                 assert(m_data != m_end);
                 return *reinterpret_cast<TMember*>(m_data);
             }
 
-            TMember* operator->() const {
+            TMember* operator->() const noexcept {
                 assert(m_data);
                 assert(m_data != m_end);
                 return reinterpret_cast<TMember*>(m_data);
             }
 
-            explicit operator bool() const {
-                return m_data != nullptr;
+            explicit operator bool() const noexcept {
+                return (m_data != nullptr) && (m_data != m_end);
             }
 
             template <typename TChar, typename TTraits>
-            friend std::basic_ostream<TChar, TTraits>& operator<<(std::basic_ostream<TChar, TTraits>& out, const ItemIterator<TMember>& iter) {
-                return out << static_cast<void*>(iter.m_data);
+            void print(std::basic_ostream<TChar, TTraits>& out) const {
+                out << static_cast<const void*>(m_data);
             }
 
         }; // class ItemIterator
+
+        template <typename TChar, typename TTraits, typename TMember>
+        inline std::basic_ostream<TChar, TTraits>& operator<<(std::basic_ostream<TChar, TTraits>& out, const ItemIterator<TMember>& iter) {
+            iter.print(out);
+            return out;
+        }
+
+        template <typename T>
+        class ItemIteratorRange {
+
+            static_assert(std::is_base_of<osmium::memory::Item, T>::value, "Template parameter must derive from osmium::memory::Item");
+
+            // This data_type is either 'unsigned char*' or
+            // 'const unsigned char*' depending on whether T is const.
+            using data_type = typename std::conditional<std::is_const<T>::value, const unsigned char*, unsigned char*>::type;
+
+            data_type m_begin;
+            data_type m_end;
+
+        public:
+
+            using iterator = ItemIterator<T>;
+            using const_iterator = ItemIterator<const T>;
+
+            ItemIteratorRange(data_type first, data_type last) noexcept :
+                m_begin(first),
+                m_end(last) {
+            }
+
+            iterator begin() noexcept {
+                return iterator{m_begin, m_end};
+            }
+
+            iterator end() noexcept {
+                return iterator{m_end, m_end};
+            }
+
+            const_iterator cbegin() const noexcept {
+                return const_iterator{m_begin, m_end};
+            }
+
+            const_iterator cend() const noexcept {
+                return const_iterator{m_end, m_end};
+            }
+
+            const_iterator begin() const noexcept {
+                return cbegin();
+            }
+
+            const_iterator end() const noexcept {
+                return cend();
+            }
+
+            /**
+             * Return the number of items in this range.
+             *
+             * Note that this methods has worst-case complexity O(n) with n
+             * being the number of items in the underlying range.
+             */
+            size_t size() const {
+                if (m_begin == m_end) {
+                    return 0;
+                }
+                return std::distance(cbegin(), cend());
+            }
+
+            /**
+             * Is this range empty?
+             *
+             * Note that this methods has worst-case complexity O(n) with n
+             * being the number of items in the underlying range.
+             */
+            bool empty() const {
+                return size() == 0;
+            }
+
+        }; // class ItemIteratorRange
 
     } // namespace memory
 

@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -43,10 +43,9 @@ DEALINGS IN THE SOFTWARE.
  */
 
 #include <cerrno>
-#include <cstddef>
 #include <cstdio>
-#include <stdexcept>
 #include <string>
+#include <system_error>
 
 #include <bzlib.h>
 
@@ -55,7 +54,10 @@ DEALINGS IN THE SOFTWARE.
 #endif
 
 #include <osmium/io/compression.hpp>
+#include <osmium/io/detail/read_write.hpp>
+#include <osmium/io/error.hpp>
 #include <osmium/io/file_compression.hpp>
+#include <osmium/io/writer_options.hpp>
 #include <osmium/util/cast.hpp>
 #include <osmium/util/compatibility.hpp>
 
@@ -65,13 +67,13 @@ namespace osmium {
      * Exception thrown when there are problems compressing or
      * decompressing bzip2 files.
      */
-    struct bzip2_error : public std::runtime_error {
+    struct bzip2_error : public io_error {
 
         int bzip2_error_code;
         int system_errno;
 
         bzip2_error(const std::string& what, int error_code) :
-            std::runtime_error(what),
+            io_error(what),
             bzip2_error_code(error_code),
             system_errno(error_code == BZ_IO_ERROR ? errno : 0) {
         }
@@ -105,9 +107,9 @@ namespace osmium {
 
         public:
 
-            explicit Bzip2Compressor(int fd) :
-                Compressor(),
-                m_file(fdopen(dup(fd), "wb")),
+            explicit Bzip2Compressor(int fd, fsync sync) :
+                Compressor(sync),
+                m_file(fdopen(::dup(fd), "wb")),
                 m_bzerror(BZ_OK),
                 m_bzfile(::BZ2_bzWriteOpen(&m_bzerror, m_file, 6, 0, 0)) {
                 if (!m_bzfile) {
@@ -115,11 +117,15 @@ namespace osmium {
                 }
             }
 
-            ~Bzip2Compressor() override final {
-                close();
+            ~Bzip2Compressor() noexcept final {
+                try {
+                    close();
+                } catch (...) {
+                    // Ignore any exceptions because destructor must not throw.
+                }
             }
 
-            void write(const std::string& data) override final {
+            void write(const std::string& data) final {
                 int error;
                 ::BZ2_bzWrite(&error, m_bzfile, const_cast<char*>(data.data()), static_cast_with_assert<int>(data.size()));
                 if (error != BZ_OK && error != BZ_STREAM_END) {
@@ -127,13 +133,18 @@ namespace osmium {
                 }
             }
 
-            void close() override final {
+            void close() final {
                 if (m_bzfile) {
                     int error;
                     ::BZ2_bzWriteClose(&error, m_bzfile, 0, nullptr, nullptr);
                     m_bzfile = nullptr;
                     if (m_file) {
-                        fclose(m_file);
+                        if (do_fsync()) {
+                            osmium::io::detail::reliable_fsync(::fileno(m_file));
+                        }
+                        if (fclose(m_file) != 0) {
+                            throw std::system_error(errno, std::system_category(), "Close failed");
+                        }
                     }
                     if (error != BZ_OK) {
                         detail::throw_bzip2_error(m_bzfile, "write close failed", error);
@@ -152,9 +163,9 @@ namespace osmium {
 
         public:
 
-            Bzip2Decompressor(int fd) :
+            explicit Bzip2Decompressor(int fd) :
                 Decompressor(),
-                m_file(fdopen(dup(fd), "rb")),
+                m_file(fdopen(::dup(fd), "rb")),
                 m_bzerror(BZ_OK),
                 m_bzfile(::BZ2_bzReadOpen(&m_bzerror, m_file, 0, 0, nullptr, 0)) {
                 if (!m_bzfile) {
@@ -162,11 +173,15 @@ namespace osmium {
                 }
             }
 
-            ~Bzip2Decompressor() override final {
-                close();
+            ~Bzip2Decompressor() noexcept final {
+                try {
+                    close();
+                } catch (...) {
+                    // Ignore any exceptions because destructor must not throw.
+                }
             }
 
-            std::string read() override final {
+            std::string read() final {
                 std::string buffer;
 
                 if (!m_stream_end) {
@@ -200,16 +215,20 @@ namespace osmium {
                     buffer.resize(static_cast<std::string::size_type>(nread));
                 }
 
+                set_offset(size_t(ftell(m_file)));
+
                 return buffer;
             }
 
-            void close() override final {
+            void close() final {
                 if (m_bzfile) {
                     int error;
                     ::BZ2_bzReadClose(&error, m_bzfile);
                     m_bzfile = nullptr;
                     if (m_file) {
-                        fclose(m_file);
+                        if (fclose(m_file) != 0) {
+                            throw std::system_error(errno, std::system_category(), "Close failed");
+                        }
                     }
                     if (error != BZ_OK) {
                         detail::throw_bzip2_error(m_bzfile, "read close failed", error);
@@ -240,11 +259,15 @@ namespace osmium {
                 }
             }
 
-            ~Bzip2BufferDecompressor() override final {
-                BZ2_bzDecompressEnd(&m_bzstream);
+            ~Bzip2BufferDecompressor() noexcept final {
+                try {
+                    close();
+                } catch (...) {
+                    // Ignore any exceptions because destructor must not throw.
+                }
             }
 
-            std::string read() override final {
+            std::string read() final {
                 std::string output;
 
                 if (m_buffer) {
@@ -270,17 +293,28 @@ namespace osmium {
                 return output;
             }
 
+            void close() final {
+                BZ2_bzDecompressEnd(&m_bzstream);
+            }
+
         }; // class Bzip2BufferDecompressor
 
-        namespace {
+        namespace detail {
 
+            // we want the register_compression() function to run, setting
+            // the variable is only a side-effect, it will never be used
             const bool registered_bzip2_compression = osmium::io::CompressionFactory::instance().register_compression(osmium::io::file_compression::bzip2,
-                [](int fd) { return new osmium::io::Bzip2Compressor(fd); },
+                [](int fd, fsync sync) { return new osmium::io::Bzip2Compressor(fd, sync); },
                 [](int fd) { return new osmium::io::Bzip2Decompressor(fd); },
                 [](const char* buffer, size_t size) { return new osmium::io::Bzip2BufferDecompressor(buffer, size); }
             );
 
-        } // anonymous namespace
+            // dummy function to silence the unused variable warning from above
+            inline bool get_registered_bzip2_compression() noexcept {
+                return registered_bzip2_compression;
+            }
+
+        } // namespace detail
 
     } // namespace io
 

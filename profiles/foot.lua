@@ -3,14 +3,12 @@
 local find_access_tag = require("lib/access").find_access_tag
 
 -- Begin of globals
-barrier_whitelist = { [""] = true, ["cycle_barrier"] = true, ["bollard"] = true, ["entrance"] = true, ["cattle_grid"] = true, ["border_control"] = true, ["toll_booth"] = true, ["sally_port"] = true, ["gate"] = true, ["no"] = true}
+barrier_whitelist = { [""] = true, ["cycle_barrier"] = true, ["bollard"] = true, ["entrance"] = true, ["cattle_grid"] = true, ["border_control"] = true, ["toll_booth"] = true, ["sally_port"] = true, ["gate"] = true, ["no"] = true, ["block"] = true}
 access_tag_whitelist = { ["yes"] = true, ["foot"] = true, ["permissive"] = true, ["designated"] = true  }
-access_tag_blacklist = { ["no"] = true, ["private"] = true, ["agricultural"] = true, ["forestry"] = true }
-access_tag_restricted = { ["destination"] = true, ["delivery"] = true }
-access_tags_hierachy = { "foot", "access" }
-service_tag_restricted = { ["parking_aisle"] = true }
+access_tag_blacklist = { ["no"] = true, ["private"] = true, ["agricultural"] = true, ["forestry"] = true, ["delivery"] = true }
+access_tags_hierarchy = { "foot", "access" }
 ignore_in_grid = { ["ferry"] = true }
-restriction_exception_tags = { "foot" }
+restrictions = { "foot" }
 
 walking_speed = 5
 
@@ -64,28 +62,26 @@ leisure_speeds = {
   ["track"] = walking_speed
 }
 
-traffic_signal_penalty   = 2
-u_turn_penalty       = 2
-use_turn_restrictions   = false
+properties.traffic_signal_penalty        = 2
+properties.u_turn_penalty                = 2
+properties.max_speed_for_map_matching    = 40/3.6 -- kmph -> m/s
+properties.use_turn_restrictions         = false
+properties.continue_straight_at_waypoint = false
 
---modes
-local mode_normal = 1
-local mode_ferry = 2
-
-function get_exceptions(vector)
-  for i,v in ipairs(restriction_exception_tags) do
+function get_restrictions(vector)
+  for i,v in ipairs(restrictions) do
     vector:Add(v)
   end
 end
 
 function node_function (node, result)
   local barrier = node:get_value_by_key("barrier")
-  local access = find_access_tag(node, access_tags_hierachy)
+  local access = find_access_tag(node, access_tags_hierarchy)
   local traffic_signal = node:get_value_by_key("highway")
 
   -- flag node if it carries a traffic light
   if traffic_signal and traffic_signal == "traffic_signals" then
-    result.traffic_light = true
+    result.traffic_lights = true
   end
 
   -- parse access and barrier tags
@@ -132,10 +128,13 @@ function way_function (way, result)
   end
 
   -- access
-  local access = find_access_tag(way, access_tags_hierachy)
+  local access = find_access_tag(way, access_tags_hierarchy)
   if access_tag_blacklist[access] then
     return
   end
+
+  result.forward_mode = mode.walking
+  result.backward_mode = mode.walking
 
   local name = way:get_value_by_key("name")
   local ref = way:get_value_by_key("ref")
@@ -148,20 +147,19 @@ function way_function (way, result)
   local surface = way:get_value_by_key("surface")
 
    -- name
-  if ref and "" ~= ref and name and "" ~= name then
-    result.name = name .. ' / ' .. ref
-    elseif ref and "" ~= ref then
-      result.name = ref
-  elseif name and "" ~= name then
+  if name and "" ~= name then
     result.name = name
-  elseif highway then
-    result.name = "{highway:"..highway.."}"  -- if no name exists, use way type
-                                            -- this encoding scheme is excepted to be a temporary solution
+  end
+  if ref and "" ~= ref then
+    result.ref = ref
   end
 
-    -- roundabouts
+  -- roundabouts
   if "roundabout" == junction then
-    result.roundabout = true;
+    result.roundabout = true
+  end
+  if "circular" == junction then
+    result.circular = true
   end
 
     -- speed
@@ -174,8 +172,8 @@ function way_function (way, result)
     result.forward_speed = route_speeds[route]
     result.backward_speed = route_speeds[route]
   end
-    result.forward_mode = mode_ferry
-    result.backward_mode = mode_ferry
+    result.forward_mode = mode.ferry
+    result.backward_mode = mode.ferry
   elseif railway and platform_speeds[railway] then
     -- railway platforms (old tagging scheme)
     result.forward_speed = platform_speeds[railway]
@@ -204,11 +202,11 @@ function way_function (way, result)
 
   -- oneway
   if onewayClass == "yes" or onewayClass == "1" or onewayClass == "true" then
-    result.backward_mode = 0
+    result.backward_mode = mode.inaccessible
   elseif onewayClass == "no" or onewayClass == "0" or onewayClass == "false" then
     -- nothing to do
   elseif onewayClass == "-1" then
-    result.forward_mode = 0
+    result.forward_mode = mode.inaccessible
   end
 
   -- surfaces

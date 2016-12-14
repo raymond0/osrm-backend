@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,23 +33,26 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iterator>
 
 #include <osmium/memory/collection.hpp> // IWYU pragma: keep
 #include <osmium/memory/item.hpp>
+#include <osmium/osm/entity.hpp>
 #include <osmium/osm/item_type.hpp>
 #include <osmium/osm/object.hpp>
 #include <osmium/osm/types.hpp>
+#include <osmium/util/compatibility.hpp>
 
 namespace osmium {
 
     namespace builder {
-        template <class> class ObjectBuilder;
+        template <typename TDerived, typename T>
+        class OSMObjectBuilder;
+
         class RelationMemberListBuilder;
-    }
+    } // namespace builder
 
     class RelationMember : public osmium::memory::detail::ItemHelper {
 
@@ -74,23 +77,21 @@ namespace osmium {
             return data() + osmium::memory::padded_length(sizeof(RelationMember) + m_role_size);
         }
 
-        template <class TMember>
+        template <typename TMember>
         friend class osmium::memory::CollectionIterator;
 
         unsigned char* next() {
             if (full_member()) {
                 return endpos() + reinterpret_cast<osmium::memory::Item*>(endpos())->byte_size();
-            } else {
-                return endpos();
             }
+            return endpos();
         }
 
         unsigned const char* next() const {
             if (full_member()) {
                 return endpos() + reinterpret_cast<const osmium::memory::Item*>(endpos())->byte_size();
-            } else {
-                return endpos();
             }
+            return endpos();
         }
 
         void set_role_size(string_size_type size) noexcept {
@@ -111,13 +112,19 @@ namespace osmium {
             return m_ref;
         }
 
-        RelationMember& ref(object_id_type ref) noexcept {
+        /// @deprecated Use set_ref() instead.
+        OSMIUM_DEPRECATED RelationMember& ref(object_id_type ref) noexcept {
             m_ref = ref;
             return *this;
         }
 
         unsigned_object_id_type positive_ref() const noexcept {
             return static_cast<unsigned_object_id_type>(std::abs(m_ref));
+        }
+
+        RelationMember& set_ref(const osmium::object_id_type ref) noexcept {
+            m_ref = ref;
+            return *this;
         }
 
         item_type type() const noexcept {
@@ -146,14 +153,8 @@ namespace osmium {
 
     public:
 
-        typedef size_t size_type;
-
         RelationMemberList() :
             osmium::memory::Collection<RelationMember, osmium::item_type::relation_member_list>() {
-        }
-
-        size_type size() const noexcept {
-            return static_cast<size_type>(std::distance(begin(), end()));
         }
 
     }; // class RelationMemberList
@@ -162,7 +163,8 @@ namespace osmium {
 
     class Relation : public OSMObject {
 
-        friend class osmium::builder::ObjectBuilder<osmium::Relation>;
+        template <typename TDerived, typename T>
+        friend class osmium::builder::OSMObjectBuilder;
 
         Relation() noexcept :
             OSMObject(sizeof(Relation), osmium::item_type::relation) {

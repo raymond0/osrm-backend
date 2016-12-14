@@ -4,12 +4,16 @@ The Open Source Routing Machine is a high performance routing engine written in 
 
 ## Current build status
 
-| build config |  branch | status |
-|:-------------|:--------|:------------|
-| Linux        | master  | [![Build Status](https://travis-ci.org/Project-OSRM/osrm-backend.png?branch=master)](https://travis-ci.org/Project-OSRM/osrm-backend) |
-| Linux        | develop | [![Build Status](https://travis-ci.org/Project-OSRM/osrm-backend.png?branch=develop)](https://travis-ci.org/Project-OSRM/osrm-backend) |
-| Windows      | master/develop | [![Build status](https://ci.appveyor.com/api/projects/status/4iuo3s9gxprmcjjh)](https://ci.appveyor.com/project/DennisOSRM/osrm-backend) |
-| LUAbind fork | master  | [![Build Status](https://travis-ci.org/DennisOSRM/luabind.png?branch=master)](https://travis-ci.org/DennisOSRM/luabind) |
+| build config | status |
+|:-------------|:-------|
+| Linux        | [![Build Status](https://travis-ci.org/Project-OSRM/osrm-backend.png?branch=master)](https://travis-ci.org/Project-OSRM/osrm-backend) |
+| Windows      | [![Build status](https://ci.appveyor.com/api/projects/status/4iuo3s9gxprmcjjh)](https://ci.appveyor.com/project/DennisOSRM/osrm-backend) |
+| Coverage     | [![codecov](https://codecov.io/gh/Project-OSRM/osrm-backend/branch/master/graph/badge.svg)](https://codecov.io/gh/Project-OSRM/osrm-backend) |
+
+## Contact
+
+- IRC: server `irc.oftc.net`, channel: `#osrm` (see: `https://www.oftc.net`, and for a webchat: `https://webchat.oftc.net`)
+- Mailinglist: `https://lists.openstreetmap.org/listinfo/osrm-talk`
 
 ## Building
 
@@ -19,7 +23,46 @@ To quickly try OSRM use our [free and daily updated online service](http://map.p
 
 ## Documentation
 
-See the Wiki's [server API documentation](https://github.com/Project-OSRM/osrm-backend/wiki/Server-api) as well as the [library API documentation](https://github.com/Project-OSRM/osrm-backend/wiki/Library-api)
+### Full documentation
+
+- [osrm-routed HTTP API documentation](docs/http.md)
+- [libosrm API documentation](docs/libosrm.md)
+
+### Quick start
+
+Building OSRM assuming all dependencies are installed:
+
+```
+mkdir -p build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+sudo cmake --build . --target install
+```
+
+Loading preparing a dataset and starting the server:
+
+```
+osrm-extract data.osm.pbf -p profiles/car.lua
+osrm-contract data.osrm
+osrm-routed data.osrm
+```
+
+Running a query on your local server:
+
+```
+curl http://127.0.0.1:5000/route/v1/driving/13.388860,52.517037;13.385983,52.496891?steps=true&alternatives=true
+```
+
+### Running a request against the Demo Server
+
+First read the [API usage policy](https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy).
+
+Then run simple query with instructions and alternatives on Berlin:
+
+```
+curl https://router.project-osrm.org/route/v1/driving/13.388860,52.517037;13.385983,52.496891?steps=true&alternatives=true
+```
 
 ## References in publications
 

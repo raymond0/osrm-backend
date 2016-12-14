@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -42,6 +42,9 @@ DEALINGS IN THE SOFTWARE.
 
 namespace osmium {
 
+    class NodeRef;
+    class Way;
+
     namespace area {
 
         class ProblemReporterException : public ProblemReporterStream {
@@ -54,11 +57,17 @@ namespace osmium {
                 ProblemReporterStream(m_sstream) {
             }
 
-            virtual ~ProblemReporterException() = default;
+            ~ProblemReporterException() override = default;
 
             void report_duplicate_node(osmium::object_id_type node_id1, osmium::object_id_type node_id2, osmium::Location location) override {
                 m_sstream.str();
                 ProblemReporterStream::report_duplicate_node(node_id1, node_id2, location);
+                throw std::runtime_error(m_sstream.str());
+            }
+
+            void report_touching_ring(osmium::object_id_type node_id, osmium::Location location) override {
+                m_sstream.str();
+                ProblemReporterStream::report_touching_ring(node_id, location);
                 throw std::runtime_error(m_sstream.str());
             }
 
@@ -69,9 +78,15 @@ namespace osmium {
                 throw std::runtime_error(m_sstream.str());
             }
 
-            void report_ring_not_closed(osmium::Location end1, osmium::Location end2) override {
+            void report_duplicate_segment(const osmium::NodeRef& nr1, const osmium::NodeRef& nr2) override {
                 m_sstream.str();
-                ProblemReporterStream::report_ring_not_closed(end1, end2);
+                ProblemReporterStream::report_duplicate_segment(nr1, nr2);
+                throw std::runtime_error(m_sstream.str());
+            }
+
+            void report_ring_not_closed(const osmium::NodeRef& nr, const osmium::Way* way = nullptr) override {
+                m_sstream.str();
+                ProblemReporterStream::report_ring_not_closed(nr, way);
                 throw std::runtime_error(m_sstream.str());
             }
 
@@ -84,6 +99,18 @@ namespace osmium {
             void report_role_should_be_inner(osmium::object_id_type way_id, osmium::Location seg_start, osmium::Location seg_end) override {
                 m_sstream.str();
                 ProblemReporterStream::report_role_should_be_inner(way_id, seg_start, seg_end);
+                throw std::runtime_error(m_sstream.str());
+            }
+
+            void report_way_in_multiple_rings(const osmium::Way& way) override {
+                m_sstream.str();
+                ProblemReporterStream::report_way_in_multiple_rings(way);
+                throw std::runtime_error(m_sstream.str());
+            }
+
+            void report_inner_with_same_tags(const osmium::Way& way) override {
+                m_sstream.str();
+                ProblemReporterStream::report_inner_with_same_tags(way);
                 throw std::runtime_error(m_sstream.str());
             }
 

@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,18 +33,20 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/memory/collection.hpp>
 #include <osmium/memory/item.hpp>
+#include <osmium/osm/entity.hpp>
 #include <osmium/osm/item_type.hpp>
-#include <osmium/osm/object.hpp>
-#include <osmium/osm/types.hpp>
 #include <osmium/osm/node_ref.hpp>
 #include <osmium/osm/node_ref_list.hpp>
+#include <osmium/osm/object.hpp>
 
 namespace osmium {
 
     namespace builder {
-        template <class T> class ObjectBuilder;
-    }
+        template <typename TDerived, typename T>
+        class OSMObjectBuilder;
+    } // namespace builder
 
     /**
      * List of node references (id and location) in a way.
@@ -65,7 +67,8 @@ namespace osmium {
 
     class Way : public OSMObject {
 
-        friend class osmium::builder::ObjectBuilder<osmium::Way>;
+        template <typename TDerived, typename T>
+        friend class osmium::builder::OSMObjectBuilder;
 
         Way() noexcept :
             OSMObject(sizeof(Way), osmium::item_type::way) {

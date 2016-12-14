@@ -5,7 +5,7 @@ Feature: Car - Restricted access
     Background:
         Given the profile "car"
 
-    Scenario: Car - Access tag hierachy    on ways
+    Scenario: Car - Access tag hierarchy on ways
         Then routability should be
             | access | vehicle | motor_vehicle | motorcar | bothw |
             |        |         |               |          | x     |
@@ -30,7 +30,36 @@ Feature: Car - Restricted access
             |        |         | no            | yes      | x     |
             |        |         | yes           | no       |       |
 
-    Scenario: Car - Access tag hierachy on nodes
+    Scenario: Car - Access tag hierarchy and forward/backward
+        Then routability should be
+            | access | access:forward | access:backward | motorcar | motorcar:forward | motorcar:backward | forw | backw |
+            |        |                |                 |          |                  |                   | x    | x     |
+            | yes    |                |                 |          |                  |                   | x    | x     |
+            | yes    | no             |                 |          |                  |                   |      | x     |
+            | yes    | yes            |                 | no       |                  |                   |      |       |
+            | yes    | yes            |                 | yes      | no               |                   |      | x     |
+            | yes    |                |                 |          |                  |                   | x    | x     |
+            | yes    |                | no              |          |                  |                   | x    |       |
+            | yes    |                | yes             | no       |                  |                   |      |       |
+            | yes    |                | yes             | yes      |                  | no                | x    |       |
+            | no     |                |                 |          |                  |                   |      |       |
+            | no     | yes            |                 |          |                  |                   | x    |       |
+            | no     | no             |                 | yes      |                  |                   | x    | x     |
+            | no     | no             |                 | no       | yes              |                   | x    |       |
+            | no     |                |                 |          |                  |                   |      |       |
+            | no     |                | yes             |          |                  |                   |      | x     |
+            | no     |                | no              | yes      |                  |                   | x    | x     |
+            | no     |                | no              | no       |                  | yes               |      | x     |
+            |        | no             |                 |          | no               |                   |      | x     |
+            |        |                | no              |          |                  | no                | x    |       |
+            |        | no             |                 |          |                  | no                |      |       |
+            |        |                | no              | no       |                  |                   |      |       |
+            |        | no             |                 |          | yes              |                   | x    | x     |
+            |        |                | no              |          |                  | yes               | x    | x     |
+            |        | yes            |                 |          | no               |                   |      | x     |
+            |        |                | yes             |          |                  | no                | x    |       |
+
+    Scenario: Car - Access tag hierarchy on nodes
         Then routability should be
             | node/access | node/vehicle | node/motor_vehicle | node/motorcar | bothw |
             |             |              |                    |               | x     |
@@ -94,6 +123,7 @@ Feature: Car - Restricted access
             | agricultural |       |
             | forestry     |       |
             | psv          |       |
+            | delivery     |       |
             | some_tag     | x     |
 
 
@@ -108,6 +138,7 @@ Feature: Car - Restricted access
             | agricultural |       |
             | forestry     |       |
             | psv          |       |
+            | delivery     |       |
             | some_tag     | x     |
 
     Scenario: Car - Access tags on both node and way
@@ -125,13 +156,15 @@ Feature: Car - Restricted access
 
     Scenario: Car - Access combinations
         Then routability should be
-            | highway     | accesss      | vehicle    | motor_vehicle | motorcar   | bothw |
-            | runway      | private      |            |               | permissive | x     |
-            | primary     | forestry     |            | yes           |            | x     |
-            | cycleway    |              |            | designated    |            | x     |
-            | residential |              | yes        | no            |            |       |
-            | motorway    | yes          | permissive |               | private    |       |
-            | trunk       | agricultural | designated | permissive    | no         |       |
+            | highway     | accesss      | vehicle    | motor_vehicle | motorcar    | bothw |
+            | runway      | private      |            |               | permissive  | x     |
+            | primary     | forestry     |            | yes           |             | x     |
+            | cycleway    |              |            | designated    |             | x     |
+            | residential |              | yes        | no            |             |       |
+            | motorway    | yes          | permissive |               | private     |       |
+            | trunk       | agricultural | designated | permissive    | no          |       |
+            | pedestrian  |              |            |               |             |       |
+            | pedestrian  |              |            |               | destination | x     |
 
     Scenario: Car - Ignore access tags for other modes
         Then routability should be
@@ -144,3 +177,58 @@ Feature: Car - Restricted access
             | primary |      |         | no  |           | x     |
             | runway  |      |         |     | yes       |       |
             | primary |      |         |     | no        | x     |
+
+    @hov
+    Scenario: Car - only designated HOV ways are ignored by default
+        Then routability should be
+            | highway | hov        | bothw |
+            | primary | designated |       |
+            | primary | yes        | x     |
+            | primary | no         | x     |
+
+    @hov
+    Scenario: Car - a way with all lanes HOV-designated is inaccessible by default (similar to hov=designated)
+        Then routability should be
+            | highway | hov:lanes:forward      | hov:lanes:backward     | hov:lanes              | oneway | forw | backw |
+            | primary | designated             | designated             |                        |        |      |       |
+            | primary |                        | designated             |                        |        | x    |       |
+            | primary | designated             |                        |                        |        |      | x     |
+            | primary | designated\|designated | designated\|designated |                        |        |      |       |
+            | primary | designated\|no         | designated\|no         |                        |        | x    | x     |
+            | primary | yes\|no                | yes\|no                |                        |        | x    | x     |
+            | primary |                        |                        |                        |        | x    | x     |
+            | primary | designated             |                        |                        | -1     |      | x     |
+            | primary |                        | designated             |                        | -1     |      |       |
+            | primary |                        |                        | designated             | yes    |      |       |
+            | primary |                        |                        | designated             | -1     |      |       |
+            | primary |                        |                        | designated\|           | yes    | x    |       |
+            | primary |                        |                        | designated\|           | -1     |      | x     |
+            | primary |                        |                        | designated\|designated | yes    |      |       |
+            | primary |                        |                        | designated\|designated | -1     |      |       |
+            | primary |                        |                        | designated\|yes        | yes    | x    |       |
+            | primary |                        |                        | designated\|no         | -1     |      | x     |
+
+     Scenario: Car - these toll roads always work
+        Then routability should be
+            | highway | toll        | bothw |
+            | primary | no          | x     |
+            | primary | snowmobile  | x     |
+
+     # To test this we need issue #2781
+     @todo
+     Scenario: Car - only toll=yes ways are ignored by default
+        Then routability should be
+            | highway | toll        | bothw |
+            | primary | yes         |       |
+
+    Scenario: Car - directional access tags
+        Then routability should be
+            | highway | access | access:forward | access:backward | forw | backw |
+            | primary | yes    | yes            | yes             | x    | x     |
+            | primary | yes    |                | no              | x    |       |
+            | primary | yes    | no             |                 |      | x     |
+            | primary | yes    | no             | no              |      |       |
+            | primary | no     | no             | no              |      |       |
+            | primary | no     |                | yes             |      | x     |
+            | primary | no     | yes            |                 | x    |       |
+            | primary | no     | yes            | yes             | x    | x     |

@@ -11,12 +11,12 @@ Feature: osrm-extract command line options: help
         And stdout should contain "Options:"
         And stdout should contain "--version"
         And stdout should contain "--help"
-        And stdout should contain "--config"
         And stdout should contain "Configuration:"
         And stdout should contain "--profile"
         And stdout should contain "--threads"
-        And stdout should contain 12 lines
-        And it should exit with code 0
+        And stdout should contain "--generate-edge-lookup"
+        And stdout should contain "--small-component-size"
+        And it should exit successfully
 
     Scenario: osrm-extract - Help, short
         When I run "osrm-extract -h"
@@ -25,12 +25,12 @@ Feature: osrm-extract command line options: help
         And stdout should contain "Options:"
         And stdout should contain "--version"
         And stdout should contain "--help"
-        And stdout should contain "--config"
         And stdout should contain "Configuration:"
         And stdout should contain "--profile"
         And stdout should contain "--threads"
-        And stdout should contain 12 lines
-        And it should exit with code 0
+        And stdout should contain "--generate-edge-lookup"
+        And stdout should contain "--small-component-size"
+        And it should exit successfully
 
     Scenario: osrm-extract - Help, long
         When I run "osrm-extract --help"
@@ -39,9 +39,9 @@ Feature: osrm-extract command line options: help
         And stdout should contain "Options:"
         And stdout should contain "--version"
         And stdout should contain "--help"
-        And stdout should contain "--config"
         And stdout should contain "Configuration:"
         And stdout should contain "--profile"
         And stdout should contain "--threads"
-        And stdout should contain 12 lines
-        And it should exit with code 0
+        And stdout should contain "--generate-edge-lookup"
+        And stdout should contain "--small-component-size"
+        And it should exit successfully

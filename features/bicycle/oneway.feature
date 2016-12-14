@@ -18,8 +18,10 @@ Feature: Bike - Oneway streets
 
     Scenario: Bike - Around the Block
         Given the node map
-            | a | b |
-            | d | c |
+            """
+              a b
+            f d c e
+            """
 
         And the ways
             | nodes | oneway | foot |
@@ -27,11 +29,13 @@ Feature: Bike - Oneway streets
             | bc    |        | no   |
             | cd    |        | no   |
             | da    |        | no   |
+            | df    |        | no   |
+            | ce    |        | no   |
 
         When I route I should get
-            | from | to | route    |
-            | a    | b  | ab       |
-            | b    | a  | bc,cd,da |
+            | from | to | route       |
+            | a    | b  | ab,ab       |
+            | b    | a  | bc,cd,da,da |
 
     Scenario: Bike - Handle various oneway tag values
         Then routability should be
@@ -48,22 +52,22 @@ Feature: Bike - Oneway streets
 
     Scenario: Bike - Implied oneways
         Then routability should be
-            | highway       | foot | bicycle | junction   | forw | backw |
-            |               | no   |         |            | x    | x     |
-            |               | no   |         | roundabout | x    |       |
-            | motorway      | no   | yes     |            | x    |       |
-            | motorway_link | no   | yes     |            | x    |       |
-            | motorway      | no   | yes     | roundabout | x    |       |
-            | motorway_link | no   | yes     | roundabout | x    |       |
+            | highway         | foot | bicycle | junction   | forw | backw | #                     |
+            |                 | no   |         |            | x    | x     |                       |
+            |                 | no   |         | roundabout | x    |       |                       |
+            | motorway        | no   | yes     |            | x    |       |                       |
+            | motorway_link   | no   | yes     |            | x    | x     | does not imply oneway |
+            | motorway        | no   | yes     | roundabout | x    |       |                       |
+            | motorway_link   | no   | yes     | roundabout | x    |       |                       |
 
     Scenario: Bike - Overriding implied oneways
         Then routability should be
-            | highway       | foot | junction   | oneway | forw | backw |
-            | primary       | no   | roundabout | no     | x    | x     |
-            | primary       | no   | roundabout | yes    | x    |       |
-            | motorway_link | no   |            | -1     |      |       |
-            | trunk_link    | no   |            | -1     |      |       |
-            | primary       | no   | roundabout | -1     |      | x     |
+            | highway         | foot | junction   | oneway | forw | backw |
+            | primary         | no   | roundabout | no     | x    | x     |
+            | primary         | no   | roundabout | yes    | x    |       |
+            | motorway_link   | no   |            | -1     |      |       |
+            | trunk_link      | no   |            | -1     |      |       |
+            | primary         | no   | roundabout | -1     |      | x     |
 
     Scenario: Bike - Oneway:bicycle should override normal oneways tags
         Then routability should be
@@ -115,7 +119,9 @@ Feature: Bike - Oneway streets
 
     Scenario: Bike - Two consecutive oneways
         Given the node map
-            | a | b | c |
+            """
+            a b   c
+            """
 
         And the ways
             | nodes | oneway |
@@ -124,5 +130,5 @@ Feature: Bike - Oneway streets
 
 
         When I route I should get
-            | from | to | route |
-            | a    | c  | ab,bc |
+            | from | to | route    |
+            | a    | c  | ab,bc,bc |

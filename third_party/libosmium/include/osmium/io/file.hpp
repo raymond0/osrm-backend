@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -34,15 +34,14 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include <cstddef>
-#include <stdexcept>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include <osmium/io/error.hpp>
 #include <osmium/io/file_format.hpp>
 #include <osmium/io/file_compression.hpp>
 #include <osmium/util/options.hpp>
-#include <osmium/util/compatibility.hpp>
 
 namespace osmium {
 
@@ -97,7 +96,9 @@ namespace osmium {
              *                 of the file will be taken from the suffix.
              *                 An empty filename or "-" means stdin or stdout.
              * @param format File format as string. See the description of the
-             *               parse_format() function for details.
+             *               parse_format() function for details. If this is
+             *               empty the format will be deduced from the suffix
+             *               of the filename.
              */
             explicit File(const std::string& filename = "", const std::string& format = "") :
                 Options(),
@@ -107,20 +108,19 @@ namespace osmium {
                 m_format_string(format) {
 
                 // stdin/stdout
-                if (filename == "" || filename == "-") {
+                if (m_filename == "-") {
                     m_filename = "";
-                    default_settings_for_stdinout();
                 }
 
-                // filename is actually a URL
-                std::string protocol = m_filename.substr(0, m_filename.find_first_of(':'));
+                // if filename is a URL, default to XML format
+                const std::string protocol = m_filename.substr(0, m_filename.find_first_of(':'));
                 if (protocol == "http" || protocol == "https") {
-                    default_settings_for_url();
+                    m_file_format = file_format::xml;
                 }
 
-                detect_format_from_suffix(m_filename);
-
-                if (format != "") {
+                if (format.empty()) {
+                    detect_format_from_suffix(m_filename);
+                } else {
                     parse_format(format);
                 }
             }
@@ -140,9 +140,6 @@ namespace osmium {
                 m_buffer(buffer),
                 m_buffer_size(size),
                 m_format_string(format) {
-
-                default_settings_for_stdinout();
-
                 if (format != "") {
                     parse_format(format);
                 }
@@ -175,7 +172,7 @@ namespace osmium {
                 }
 
                 for (auto& option : options) {
-                    size_t pos = option.find_first_of('=');
+                    const size_t pos = option.find_first_of('=');
                     if (pos == std::string::npos) {
                         set(option, true);
                     } else {
@@ -220,6 +217,20 @@ namespace osmium {
                 } else if (suffixes.back() == "opl") {
                     m_file_format = file_format::opl;
                     suffixes.pop_back();
+                } else if (suffixes.back() == "json") {
+                    m_file_format = file_format::json;
+                    suffixes.pop_back();
+                } else if (suffixes.back() == "o5m") {
+                    m_file_format = file_format::o5m;
+                    suffixes.pop_back();
+                } else if (suffixes.back() == "o5c") {
+                    m_file_format = file_format::o5m;
+                    m_has_multiple_object_versions = true;
+                    set("o5c_change_format", true);
+                    suffixes.pop_back();
+                } else if (suffixes.back() == "debug") {
+                    m_file_format = file_format::debug;
+                    suffixes.pop_back();
                 }
 
                 if (suffixes.empty()) return;
@@ -240,12 +251,12 @@ namespace osmium {
             }
 
             /**
-             * Check file format etc. for consistency and throw exception if there
-             * is a problem.
+             * Check file format etc. for consistency and throw exception if
+             * there is a problem.
              *
-             * @throws std::runtime_error
+             * @throws osmium::io_error
              */
-            void check() const {
+            const File& check() const {
                 if (m_file_format == file_format::unknown) {
                     std::string msg = "Could not detect file format";
                     if (!m_format_string.empty())  {
@@ -261,38 +272,9 @@ namespace osmium {
                         msg += "'";
                     }
                     msg += ".";
-                    throw std::runtime_error(msg);
+                    throw io_error(msg);
                 }
-            }
-
-            /**
-             * Set default settings for type and encoding when the filename is
-             * empty or "-". If you want to have a different default setting
-             * override this in a subclass.
-             */
-            void default_settings_for_stdinout() {
-                m_file_format      = file_format::unknown;
-                m_file_compression = file_compression::none;
-            }
-
-            /**
-             * Set default settings for type and encoding when the filename is
-             * a normal file. If you want to have a different default setting
-             * override this in a subclass.
-             */
-            void default_settings_for_file() {
-                m_file_format      = file_format::unknown;
-                m_file_compression = file_compression::none;
-            }
-
-            /**
-             * Set default settings for type and encoding when the filename is a URL.
-             * If you want to have a different default setting override this in a
-             * subclass.
-             */
-            void default_settings_for_url() {
-                m_file_format      = file_format::xml;
-                m_file_compression = file_compression::none;
+                return *this;
             }
 
             file_format format() const noexcept {

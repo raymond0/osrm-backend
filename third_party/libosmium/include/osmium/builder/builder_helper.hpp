@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -41,6 +41,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <osmium/builder/osm_object_builder.hpp>
 #include <osmium/memory/buffer.hpp>
+#include <osmium/util/compatibility.hpp>
 
 namespace osmium {
 
@@ -50,8 +51,12 @@ namespace osmium {
 
     namespace builder {
 
-        inline const osmium::WayNodeList& build_way_node_list(osmium::memory::Buffer& buffer, const std::initializer_list<osmium::NodeRef>& nodes) {
-            size_t pos = buffer.committed();
+        /**
+         * @deprecated
+         * Use osmium::builder::add_way_node_list() instead.
+         */
+        OSMIUM_DEPRECATED inline const osmium::WayNodeList& build_way_node_list(osmium::memory::Buffer& buffer, const std::initializer_list<osmium::NodeRef>& nodes) {
+            const size_t pos = buffer.committed();
             {
                 osmium::builder::WayNodeListBuilder wnl_builder(buffer);
                 for (const auto& node_ref : nodes) {
@@ -62,8 +67,12 @@ namespace osmium {
             return buffer.get<const osmium::WayNodeList>(pos);
         }
 
+        /**
+         * @deprecated
+         * Use osmium::builder::add_tag_list() instead.
+         */
         inline const osmium::TagList& build_tag_list(osmium::memory::Buffer& buffer, const std::initializer_list<std::pair<const char*, const char*>>& tags) {
-            size_t pos = buffer.committed();
+            const size_t pos = buffer.committed();
             {
                 osmium::builder::TagListBuilder tl_builder(buffer);
                 for (const auto& p : tags) {
@@ -74,8 +83,12 @@ namespace osmium {
             return buffer.get<const osmium::TagList>(pos);
         }
 
+        /**
+         * @deprecated
+         * Use osmium::builder::add_tag_list() instead.
+         */
         inline const osmium::TagList& build_tag_list_from_map(osmium::memory::Buffer& buffer, const std::map<const char*, const char*>& tags) {
-            size_t pos = buffer.committed();
+            const size_t pos = buffer.committed();
             {
                 osmium::builder::TagListBuilder tl_builder(buffer);
                 for (const auto& p : tags) {
@@ -86,8 +99,12 @@ namespace osmium {
             return buffer.get<const osmium::TagList>(pos);
         }
 
+        /**
+         * @deprecated
+         * Use osmium::builder::add_tag_list() instead.
+         */
         inline const osmium::TagList& build_tag_list_from_func(osmium::memory::Buffer& buffer, std::function<void(osmium::builder::TagListBuilder&)> func) {
-            size_t pos = buffer.committed();
+            const size_t pos = buffer.committed();
             {
                 osmium::builder::TagListBuilder tl_builder(buffer);
                 func(tl_builder);

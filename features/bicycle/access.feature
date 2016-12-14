@@ -5,7 +5,7 @@ Feature: Bike - Access tags on ways
     Background:
         Given the profile "bicycle"
 
-    Scenario: Bike - Access tag hierachy on ways
+    Scenario: Bike - Access tag hierarchy on ways
         Then routability should be
             | highway | access | vehicle | bicycle | bothw |
             |         |        |         |         | x     |
@@ -121,6 +121,7 @@ Feature: Bike - Access tags on ways
             | private      |              |              |       |
             | agricultural |              |              |       |
             | forestry     |              |              |       |
+            | delivery     |              |              |       |
             |              | yes          |              | x     |
             |              | permissive   |              | x     |
             |              | designated   |              | x     |
@@ -129,6 +130,7 @@ Feature: Bike - Access tags on ways
             |              | private      |              |       |
             |              | agricultural |              |       |
             |              | forestry     |              |       |
+            |              | delivery     |              |       |
             |              |              | yes          | x     |
             |              |              | permissive   | x     |
             |              |              | designated   | x     |
@@ -137,6 +139,7 @@ Feature: Bike - Access tags on ways
             |              |              | private      |       |
             |              |              | agricultural |       |
             |              |              | forestry     |       |
+            |              |              | delivery     |       |
 
     Scenario: Bike - Access tags on both node and way
         Then routability should be
@@ -171,3 +174,11 @@ Feature: Bike - Access tags on ways
             | cycleway |      | no            |       | x     |
             | runway   |      |               | yes   |       |
             | cycleway |      |               | no    | x     |
+
+    Scenario: Bike - Bridleways when access is explicit
+        Then routability should be
+            | highway   | horse      | foot | bicycle | bothw |
+            | bridleway |            |      | yes     | x     |
+            | bridleway |            | yes  |         | x     |
+            | bridleway | designated |      |         |       |
+            | bridleway |            |      |         |       |

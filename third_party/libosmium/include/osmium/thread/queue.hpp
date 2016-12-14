@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
@@ -41,15 +40,18 @@ DEALINGS IN THE SOFTWARE.
 #include <queue>
 #include <string>
 #include <thread>
-#include <utility>
+#include <utility> // IWYU pragma: keep
 
-#include <osmium/util/compatibility.hpp>
+#ifdef OSMIUM_DEBUG_QUEUE_SIZE
+# include <atomic>
+# include <iostream>
+#endif
 
 namespace osmium {
 
     namespace thread {
 
-        static const std::chrono::milliseconds full_queue_sleep_duration { 10 }; // XXX
+        static const std::chrono::milliseconds max_wait{10};
 
         /**
          *  A thread-safe queue.
@@ -68,16 +70,32 @@ namespace osmium {
 
             std::queue<T> m_queue;
 
-            /// Used to signal readers when data is available in the queue.
+            /// Used to signal consumers when data is available in the queue.
             std::condition_variable m_data_available;
+
+            /// Used to signal producers when queue is not full.
+            std::condition_variable m_space_available;
 
 #ifdef OSMIUM_DEBUG_QUEUE_SIZE
             /// The largest size the queue has been so far.
             size_t m_largest_size;
 
+            /// The number of times push() was called on the queue.
+            std::atomic<int> m_push_counter;
+
             /// The number of times the queue was full and a thread pushing
             /// to the queue was blocked.
             std::atomic<int> m_full_counter;
+
+            /**
+             * The number of times wait_and_pop(with_timeout)() was called
+             * on the queue.
+             */
+            std::atomic<int> m_pop_counter;
+
+            /// The number of times the queue was full and a thread pushing
+            /// to the queue was blocked.
+            std::atomic<int> m_empty_counter;
 #endif
 
         public:
@@ -89,40 +107,57 @@ namespace osmium {
              *                 0 for an unlimited size.
              * @param name Optional name for this queue. (Used for debugging.)
              */
-            Queue(size_t max_size = 0, const std::string& name = "") :
+            explicit Queue(size_t max_size = 0, const std::string& name = "") :
                 m_max_size(max_size),
                 m_name(name),
                 m_mutex(),
                 m_queue(),
-                m_data_available()
+                m_data_available(),
+                m_space_available()
 #ifdef OSMIUM_DEBUG_QUEUE_SIZE
                 ,
                 m_largest_size(0),
-                m_full_counter(0)
+                m_push_counter(0),
+                m_full_counter(0),
+                m_pop_counter(0),
+                m_empty_counter(0)
 #endif
             {
             }
 
             ~Queue() {
 #ifdef OSMIUM_DEBUG_QUEUE_SIZE
-                std::cerr << "queue '" << m_name << "' with max_size=" << m_max_size << " had largest size " << m_largest_size << " and was full " << m_full_counter << " times\n";
+                std::cerr << "queue '" << m_name
+                          << "' with max_size=" << m_max_size
+                          << " had largest size " << m_largest_size
+                          << " and was full " << m_full_counter
+                          << " times in " << m_push_counter
+                          << " push() calls and was empty " << m_empty_counter
+                          << " times in " << m_pop_counter
+                          << " pop() calls\n";
 #endif
             }
 
             /**
-             * Push an element onto the queue. If the queue has a max size, this
-             * call will block if the queue is full.
+             * Push an element onto the queue. If the queue has a max size,
+             * this call will block if the queue is full.
              */
             void push(T value) {
+#ifdef OSMIUM_DEBUG_QUEUE_SIZE
+                ++m_push_counter;
+#endif
                 if (m_max_size) {
                     while (size() >= m_max_size) {
-                        std::this_thread::sleep_for(full_queue_sleep_duration);
+                        std::unique_lock<std::mutex> lock{m_mutex};
+                        m_space_available.wait_for(lock, max_wait, [this] {
+                            return m_queue.size() < m_max_size;
+                        });
 #ifdef OSMIUM_DEBUG_QUEUE_SIZE
                         ++m_full_counter;
 #endif
                     }
                 }
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::mutex> lock{m_mutex};
                 m_queue.push(std::move(value));
 #ifdef OSMIUM_DEBUG_QUEUE_SIZE
                 if (m_largest_size < m_queue.size()) {
@@ -133,42 +168,56 @@ namespace osmium {
             }
 
             void wait_and_pop(T& value) {
-                std::unique_lock<std::mutex> lock(m_mutex);
+#ifdef OSMIUM_DEBUG_QUEUE_SIZE
+                ++m_pop_counter;
+#endif
+                std::unique_lock<std::mutex> lock{m_mutex};
+#ifdef OSMIUM_DEBUG_QUEUE_SIZE
+                if (m_queue.empty()) {
+                    ++m_empty_counter;
+                }
+#endif
                 m_data_available.wait(lock, [this] {
                     return !m_queue.empty();
                 });
-                value = std::move(m_queue.front());
-                m_queue.pop();
-            }
-
-            void wait_and_pop_with_timeout(T& value) {
-                std::unique_lock<std::mutex> lock(m_mutex);
-                if (!m_data_available.wait_for(lock, std::chrono::seconds(1), [this] {
-                    return !m_queue.empty();
-                })) {
-                    return;
+                if (!m_queue.empty()) {
+                    value = std::move(m_queue.front());
+                    m_queue.pop();
+                    lock.unlock();
+                    if (m_max_size) {
+                        m_space_available.notify_one();
+                    }
                 }
-                value = std::move(m_queue.front());
-                m_queue.pop();
             }
 
             bool try_pop(T& value) {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                if (m_queue.empty()) {
-                    return false;
+#ifdef OSMIUM_DEBUG_QUEUE_SIZE
+                ++m_pop_counter;
+#endif
+                {
+                    std::lock_guard<std::mutex> lock{m_mutex};
+                    if (m_queue.empty()) {
+#ifdef OSMIUM_DEBUG_QUEUE_SIZE
+                        ++m_empty_counter;
+#endif
+                        return false;
+                    }
+                    value = std::move(m_queue.front());
+                    m_queue.pop();
                 }
-                value = std::move(m_queue.front());
-                m_queue.pop();
+                if (m_max_size) {
+                    m_space_available.notify_one();
+                }
                 return true;
             }
 
             bool empty() const {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::mutex> lock{m_mutex};
                 return m_queue.empty();
             }
 
             size_t size() const {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::mutex> lock{m_mutex};
                 return m_queue.size();
             }
 
