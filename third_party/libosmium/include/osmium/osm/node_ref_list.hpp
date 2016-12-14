@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -39,34 +39,48 @@ DEALINGS IN THE SOFTWARE.
 
 #include <osmium/memory/item.hpp>
 #include <osmium/osm/item_type.hpp>
+#include <osmium/osm/location.hpp>
 #include <osmium/osm/node_ref.hpp>
 
 namespace osmium {
 
     /**
-     * A vector of NodeRef objects. Usually this is not instantiated directly,
-     * but one of its subclasses are used.
+     * An ordered collection of NodeRef objects. Usually this is not
+     * instantiated directly, but one of its subclasses are used.
      */
     class NodeRefList : public osmium::memory::Item {
 
     public:
 
-        NodeRefList(osmium::item_type itemtype) noexcept :
+        using value_type             = NodeRef;
+        using reference              = NodeRef&;
+        using const_reference        = const NodeRef&;
+        using iterator               = NodeRef*;
+        using const_iterator         = const NodeRef*;
+        using const_reverse_iterator = std::reverse_iterator<const NodeRef*>;
+        using difference_type        = std::ptrdiff_t;
+        using size_type              = std::size_t;
+
+        explicit NodeRefList(osmium::item_type itemtype) noexcept :
             osmium::memory::Item(sizeof(NodeRefList), itemtype) {
         }
 
         /**
-         * Checks whether the node list is empty.
+         * Checks whether the collection is empty.
+         *
+         * Complexity: Constant.
          */
         bool empty() const noexcept {
             return sizeof(NodeRefList) == byte_size();
         }
 
         /**
-         * Returns the number of nodes in the list.
+         * Returns the number of NodeRefs in the collection.
+         *
+         * Complexity: Constant.
          */
-        size_t size() const noexcept {
-            auto size_node_refs = osmium::memory::Item::byte_size() - sizeof(NodeRefList);
+        size_type size() const noexcept {
+            const auto size_node_refs = byte_size() - sizeof(NodeRefList);
             assert(size_node_refs % sizeof(NodeRef) == 0);
             return size_node_refs / sizeof(NodeRef);
         }
@@ -74,10 +88,13 @@ namespace osmium {
         /**
          * Access specified element.
          *
-         * @param n Get this element of the list.
+         * Complexity: Constant.
+         *
          * @pre @code n < size() @endcode
+         *
+         * @param n Get the n-th element of the collection.
          */
-        const NodeRef& operator[](size_t n) const noexcept {
+        const NodeRef& operator[](size_type n) const noexcept {
             assert(n < size());
             const NodeRef* node_ref = &*(cbegin());
             return node_ref[n];
@@ -85,6 +102,8 @@ namespace osmium {
 
         /**
          * Access the first element.
+         *
+         * Complexity: Constant.
          *
          * @pre @code !empty() @endcode
          */
@@ -96,6 +115,8 @@ namespace osmium {
         /**
          * Access the last element.
          *
+         * Complexity: Constant.
+         *
          * @pre @code !empty() @endcode
          */
         const NodeRef& back() const noexcept {
@@ -104,16 +125,22 @@ namespace osmium {
         }
 
         /**
-         * Checks whether the first and last node in the list have the same ID.
+         * Checks whether the first and last node in the collection have the
+         * same ID. The locations are not checked.
+         *
+         * Complexity: Constant.
          *
          * @pre @code !empty() @endcode
          */
         bool is_closed() const noexcept {
-            return front().ref() == back().ref();
+            return ends_have_same_id();
         }
 
         /**
-         * Checks whether the first and last node in the list have the same ID.
+         * Checks whether the first and last node in the collection have the
+         * same ID. The locations are not checked.
+         *
+         * Complexity: Constant.
          *
          * @pre @code !empty() @endcode
          */
@@ -122,8 +149,10 @@ namespace osmium {
         }
 
         /**
-         * Checks whether the first and last node in the list have the same
-         * location. The ID is not checked.
+         * Checks whether the first and last node in the collection have the
+         * same location. The IDs are not checked.
+         *
+         * Complexity: Constant.
          *
          * @pre @code !empty() @endcode
          * @pre @code front().location() && back().location() @endcode
@@ -132,10 +161,6 @@ namespace osmium {
             assert(front().location() && back().location());
             return front().location() == back().location();
         }
-
-        typedef NodeRef* iterator;
-        typedef const NodeRef* const_iterator;
-        typedef std::reverse_iterator<const NodeRef*> const_reverse_iterator;
 
         /// Returns an iterator to the beginning.
         iterator begin() noexcept {

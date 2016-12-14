@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -40,14 +40,16 @@ DEALINGS IN THE SOFTWARE.
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <utility>
 #include <vector>
 
 #include <osmium/osm/item_type.hpp>
 #include <osmium/osm/object.hpp>
-#include <osmium/osm/relation.hpp> // IWYU pragma: keep
+#include <osmium/osm/relation.hpp>
 #include <osmium/osm/types.hpp>
 #include <osmium/handler.hpp>
 #include <osmium/memory/buffer.hpp>
+#include <osmium/util/iterator.hpp>
 #include <osmium/visitor.hpp>
 
 #include <osmium/relations/detail/relation_meta.hpp>
@@ -62,6 +64,10 @@ namespace osmium {
      * @brief Code related to the assembly of OSM relations
      */
     namespace relations {
+
+        namespace detail {
+
+        } // namespace detail
 
         /**
          * The Collector class collects members of a relation. This is a generic
@@ -91,7 +97,7 @@ namespace osmium {
          *
          * @tparam TRelations Are we interested in member relations?
          */
-        template <class TCollector, bool TNodes, bool TWays, bool TRelations>
+        template <typename TCollector, bool TNodes, bool TWays, bool TRelations>
         class Collector {
 
             /**
@@ -103,7 +109,7 @@ namespace osmium {
 
             public:
 
-                HandlerPass1(TCollector& collector) noexcept :
+                explicit HandlerPass1(TCollector& collector) noexcept :
                     m_collector(collector) {
                 }
 
@@ -124,82 +130,15 @@ namespace osmium {
 
                 TCollector& m_collector;
 
-                /**
-                 * This variable is initialized with the number of different
-                 * kinds of OSM objects we are interested in. If we only need
-                 * way members (for instance for the multipolygon collector)
-                 * it is intialized with 1 for instance. If node and way
-                 * members are needed, it is initialized with 2.
-                 *
-                 * In the after_* methods of this handler, it is decremented
-                 * and once it reaches 0, we know we have all members available
-                 * that we are ever going to get.
-                 */
-                int m_want_types;
-
-                /**
-                 * Find this object in the member vectors and add it to all
-                 * relations that need it.
-                 *
-                 * @returns true if the member was added to at least one
-                 *          relation and false otherwise
-                 */
-                bool find_and_add_object(const osmium::OSMObject& object) {
-                    auto& mmv = m_collector.member_meta(object.type());
-                    auto range = std::equal_range(mmv.begin(), mmv.end(), MemberMeta(object.id()));
-
-                    if (osmium::relations::count_not_removed(range.first, range.second) == 0) {
-                        // nothing found
-                        return false;
-                    }
-
-                    {
-                        m_collector.members_buffer().add_item(object);
-                        const size_t member_offset = m_collector.members_buffer().commit();
-
-                        for (auto it = range.first; it != range.second; ++it) {
-                            it->set_buffer_offset(member_offset);
-                        }
-                    }
-
-                    for (auto it = range.first; it != range.second; ++it) {
-                        MemberMeta& member_meta = *it;
-                        if (member_meta.removed()) {
-                            break;
-                        }
-                        assert(member_meta.member_id() == object.id());
-                        assert(member_meta.relation_pos() < m_collector.m_relations.size());
-                        RelationMeta& relation_meta = m_collector.m_relations[member_meta.relation_pos()];
-//                        std::cerr << "  => " << member_meta.member_pos() << " < " << m_collector.get_relation(relation_meta).members().size() << " (id=" << m_collector.get_relation(relation_meta).id() << ")\n";
-                        assert(member_meta.member_pos() < m_collector.get_relation(relation_meta).members().size());
-//                        std::cerr << "  add way " << member_meta.member_id() << " to rel " << m_collector.get_relation(relation_meta).id() << " at pos " << member_meta.member_pos() << "\n";
-                        relation_meta.got_one_member();
-                        if (relation_meta.has_all_members()) {
-                            const size_t relation_offset = member_meta.relation_pos();
-                            m_collector.complete_relation(relation_meta);
-                            m_collector.m_relations[relation_offset] = RelationMeta();
-                            m_collector.possibly_purge_removed_members();
-                        }
-                    }
-
-                    // Remove MemberMetas that were marked as removed.
-                    mmv.erase(std::remove_if(mmv.begin(), mmv.end(), [](MemberMeta& mm) {
-                        return mm.removed();
-                    }), mmv.end());
-
-                    return true;
-                }
-
             public:
 
-                HandlerPass2(TCollector& collector) noexcept :
-                    m_collector(collector),
-                    m_want_types((TNodes?1:0) + (TWays?1:0) + (TRelations?1:0)) {
+                explicit HandlerPass2(TCollector& collector) noexcept :
+                    m_collector(collector) {
                 }
 
                 void node(const osmium::Node& node) {
                     if (TNodes) {
-                        if (! find_and_add_object(node)) {
+                        if (! m_collector.find_and_add_object(node)) {
                             m_collector.node_not_in_any_relation(node);
                         }
                     }
@@ -207,7 +146,7 @@ namespace osmium {
 
                 void way(const osmium::Way& way) {
                     if (TWays) {
-                        if (! find_and_add_object(way)) {
+                        if (! m_collector.find_and_add_object(way)) {
                             m_collector.way_not_in_any_relation(way);
                         }
                     }
@@ -215,7 +154,7 @@ namespace osmium {
 
                 void relation(const osmium::Relation& relation) {
                     if (TRelations) {
-                        if (! find_and_add_object(relation)) {
+                        if (! m_collector.find_and_add_object(relation)) {
                             m_collector.relation_not_in_any_relation(relation);
                         }
                     }
@@ -226,6 +165,8 @@ namespace osmium {
                 }
 
             }; // class HandlerPass2
+
+        private:
 
             HandlerPass2 m_handler_pass2;
 
@@ -242,14 +183,21 @@ namespace osmium {
              * One vector each for nodes, ways, and relations containing all
              * mappings from member ids to their relations.
              */
-            std::vector<MemberMeta> m_member_meta[3];
+            using mm_vector_type = std::vector<MemberMeta>;
+            using mm_iterator = mm_vector_type::iterator;
+            mm_vector_type m_member_meta[3];
 
             int m_count_complete = 0;
 
-            typedef std::function<void(osmium::memory::Buffer&&)> callback_func_type;
+            using callback_func_type = std::function<void(osmium::memory::Buffer&&)>;
             callback_func_type m_callback;
 
             static constexpr size_t initial_buffer_size = 1024 * 1024;
+
+            iterator_range<mm_iterator> find_member_meta(osmium::item_type type, osmium::object_id_type id) {
+                auto& mmv = member_meta(type);
+                return make_range(std::equal_range(mmv.begin(), mmv.end(), MemberMeta(id)));
+            }
 
         public:
 
@@ -361,6 +309,7 @@ namespace osmium {
             }
 
             const osmium::Relation& get_relation(size_t offset) const {
+                assert(m_relations_buffer.committed() > offset);
                 return m_relations_buffer.get<osmium::Relation>(offset);
             }
 
@@ -371,9 +320,19 @@ namespace osmium {
                 return get_relation(relation_meta.relation_offset());
             }
 
+            /**
+             * Get the relation from a member_meta.
+             */
+            const osmium::Relation& get_relation(const MemberMeta& member_meta) const {
+                return get_relation(m_relations[member_meta.relation_pos()]);
+            }
+
             osmium::OSMObject& get_member(size_t offset) const {
+                assert(m_members_buffer.committed() > offset);
                 return m_members_buffer.get<osmium::OSMObject>(offset);
             }
+
+        private:
 
             /**
              * Tell the Collector that you are interested in this relation
@@ -395,7 +354,7 @@ namespace osmium {
                         member_meta(member.type()).emplace_back(member.ref(), m_relations.size(), n);
                         relation_meta.increment_need_members();
                     } else {
-                        member.ref(0); // set member id to zero to indicate we are not interested
+                        member.set_ref(0); // set member id to zero to indicate we are not interested
                     }
                     ++n;
                 }
@@ -406,7 +365,6 @@ namespace osmium {
                 } else {
                     m_relations_buffer.commit();
                     m_relations.push_back(std::move(relation_meta));
-//                    std::cerr << "added relation id=" << relation.id() << "\n";
                 }
             }
 
@@ -415,13 +373,83 @@ namespace osmium {
              * search on them.
              */
             void sort_member_meta() {
-/*                std::cerr << "relations:        " << m_relations.size() << "\n";
-                std::cerr << "node members:     " << m_member_meta[0].size() << "\n";
-                std::cerr << "way members:      " << m_member_meta[1].size() << "\n";
-                std::cerr << "relation members: " << m_member_meta[2].size() << "\n";*/
                 std::sort(m_member_meta[0].begin(), m_member_meta[0].end());
                 std::sort(m_member_meta[1].begin(), m_member_meta[1].end());
                 std::sort(m_member_meta[2].begin(), m_member_meta[2].end());
+            }
+
+            static typename iterator_range<mm_iterator>::iterator::difference_type count_not_removed(const iterator_range<mm_iterator>& range) {
+                return std::count_if(range.begin(), range.end(), [](MemberMeta& mm) {
+                    return !mm.removed();
+                });
+            }
+
+            /**
+             * Find this object in the member vectors and add it to all
+             * relations that need it.
+             *
+             * @returns true if the member was added to at least one
+             *          relation and false otherwise
+             */
+            bool find_and_add_object(const osmium::OSMObject& object) {
+                auto range = find_member_meta(object.type(), object.id());
+
+                if (count_not_removed(range) == 0) {
+                    // nothing found
+                    return false;
+                }
+
+                {
+                    members_buffer().add_item(object);
+                    const size_t member_offset = members_buffer().commit();
+
+                    for (auto& member_meta : range) {
+                        member_meta.set_buffer_offset(member_offset);
+                    }
+                }
+
+                for (auto& member_meta : range) {
+                    if (member_meta.removed()) {
+                        break;
+                    }
+                    assert(member_meta.member_id() == object.id());
+                    assert(member_meta.relation_pos() < m_relations.size());
+                    RelationMeta& relation_meta = m_relations[member_meta.relation_pos()];
+                    assert(member_meta.member_pos() < get_relation(relation_meta).members().size());
+                    relation_meta.got_one_member();
+                    if (relation_meta.has_all_members()) {
+                        const size_t relation_offset = member_meta.relation_pos();
+                        static_cast<TCollector*>(this)->complete_relation(relation_meta);
+                        clear_member_metas(relation_meta);
+                        m_relations[relation_offset] = RelationMeta();
+                        possibly_purge_removed_members();
+                    }
+                }
+
+                return true;
+            }
+
+            void clear_member_metas(const osmium::relations::RelationMeta& relation_meta) {
+                const osmium::Relation& relation = get_relation(relation_meta);
+                for (const auto& member : relation.members()) {
+                    if (member.ref() != 0) {
+                        const auto range = find_member_meta(member.type(), member.ref());
+                        assert(!range.empty());
+
+                        // if this is the last time this object was needed
+                        // then mark it as removed
+                        if (count_not_removed(range) == 1) {
+                            get_member(range.begin()->buffer_offset()).set_removed(true);
+                        }
+
+                        for (auto& member_meta : range) {
+                            if (!member_meta.removed() && relation.id() == get_relation(member_meta).id()) {
+                                member_meta.remove();
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
         public:
@@ -433,24 +461,24 @@ namespace osmium {
                 const uint64_t relations_buffer_capacity = m_relations_buffer.capacity();
                 const uint64_t members_buffer_capacity = m_members_buffer.capacity();
 
-                std::cout << "  nR  = m_relations.capacity() ........... = " << std::setw(12) << m_relations.capacity() << "\n";
-                std::cout << "  nMN = m_member_meta[NODE].capacity() ... = " << std::setw(12) << m_member_meta[0].capacity() << "\n";
-                std::cout << "  nMW = m_member_meta[WAY].capacity() .... = " << std::setw(12) << m_member_meta[1].capacity() << "\n";
-                std::cout << "  nMR = m_member_meta[RELATION].capacity() = " << std::setw(12) << m_member_meta[2].capacity() << "\n";
-                std::cout << "  nM  = m_member_meta[*].capacity() ...... = " << std::setw(12) << nmembers << "\n";
+                std::cerr << "  nR  = m_relations.capacity() ........... = " << std::setw(12) << m_relations.capacity() << "\n";
+                std::cerr << "  nMN = m_member_meta[NODE].capacity() ... = " << std::setw(12) << m_member_meta[0].capacity() << "\n";
+                std::cerr << "  nMW = m_member_meta[WAY].capacity() .... = " << std::setw(12) << m_member_meta[1].capacity() << "\n";
+                std::cerr << "  nMR = m_member_meta[RELATION].capacity() = " << std::setw(12) << m_member_meta[2].capacity() << "\n";
+                std::cerr << "  nM  = m_member_meta[*].capacity() ...... = " << std::setw(12) << nmembers << "\n";
 
-                std::cout << "  sRM = sizeof(RelationMeta) ............. = " << std::setw(12) << sizeof(RelationMeta) << "\n";
-                std::cout << "  sMM = sizeof(MemberMeta) ............... = " << std::setw(12) << sizeof(MemberMeta) << "\n\n";
+                std::cerr << "  sRM = sizeof(RelationMeta) ............. = " << std::setw(12) << sizeof(RelationMeta) << "\n";
+                std::cerr << "  sMM = sizeof(MemberMeta) ............... = " << std::setw(12) << sizeof(MemberMeta) << "\n\n";
 
-                std::cout << "  nR * sRM ............................... = " << std::setw(12) << relations << "\n";
-                std::cout << "  nM * sMM ............................... = " << std::setw(12) << members << "\n";
-                std::cout << "  relations_buffer_capacity .............. = " << std::setw(12) << relations_buffer_capacity << "\n";
-                std::cout << "  members_buffer_capacity ................ = " << std::setw(12) << members_buffer_capacity << "\n";
+                std::cerr << "  nR * sRM ............................... = " << std::setw(12) << relations << "\n";
+                std::cerr << "  nM * sMM ............................... = " << std::setw(12) << members << "\n";
+                std::cerr << "  relations_buffer_capacity .............. = " << std::setw(12) << relations_buffer_capacity << "\n";
+                std::cerr << "  members_buffer_capacity ................ = " << std::setw(12) << members_buffer_capacity << "\n";
 
                 const uint64_t total = relations + members + relations_buffer_capacity + members_buffer_capacity;
 
-                std::cout << "  total .................................. = " << std::setw(12) << total << "\n";
-                std::cout << "  =======================================================\n";
+                std::cerr << "  total .................................. = " << std::setw(12) << total << "\n";
+                std::cerr << "  =======================================================\n";
 
                 return relations_buffer_capacity + members_buffer_capacity + relations + members;
             }
@@ -467,21 +495,73 @@ namespace osmium {
                 return m_members_buffer;
             }
 
-            size_t get_offset(osmium::item_type type, osmium::object_id_type id) {
-                const auto& mmv = member_meta(type);
-                const auto range = std::equal_range(mmv.cbegin(), mmv.cend(), MemberMeta(id));
-                assert(range.first != range.second);
-                return range.first->buffer_offset();
+            /**
+             * Is the given member available in the members buffer?
+             *
+             * If you also need the offset of the object, use
+             * get_availability_and_offset() instead, it is more efficient
+             * that way.
+             *
+             * @param type Item type
+             * @param id Object Id
+             * @returns True if the object is available, false otherwise.
+             */
+            bool is_available(osmium::item_type type, osmium::object_id_type id) {
+                const auto range = find_member_meta(type, id);
+                assert(!range.empty());
+                return range.begin()->is_available();
             }
 
-            template <class TIter>
+            /**
+             * Get offset of a member in the members buffer.
+             *
+             * @pre The member must be available. If you are not sure, call
+             *      get_availability_and_offset() instead.
+             * @param type Item type
+             * @param id Object Id
+             * @returns The offset of the object in the members buffer.
+             */
+            size_t get_offset(osmium::item_type type, osmium::object_id_type id) {
+                const auto range = find_member_meta(type, id);
+                assert(!range.empty());
+                assert(range.begin()->is_available());
+                return range.begin()->buffer_offset();
+            }
+
+            /**
+             * Checks whether a member is available in the members buffer
+             * and returns its offset.
+             *
+             * If the member is not available, the boolean returned as the
+             * first element in the pair is false. In that case the offset
+             * in the second element is undefined.
+             *
+             * If the member is available, the boolean returned as the first
+             * element in the pair is true and the second element of the
+             * pair contains the offset into the members buffer.
+             *
+             * @param type Item type
+             * @param id Object Id
+             * @returns Pair of bool (showing availability) and the offset.
+             */
+            std::pair<bool, size_t> get_availability_and_offset(osmium::item_type type, osmium::object_id_type id) {
+                const auto range = find_member_meta(type, id);
+                assert(!range.empty());
+                if (range.begin()->is_available()) {
+                    return std::make_pair(true, range.begin()->buffer_offset());
+                } else {
+                    return std::make_pair(false, 0);
+                }
+            }
+
+            template <typename TIter>
             void read_relations(TIter begin, TIter end) {
                 HandlerPass1 handler(*static_cast<TCollector*>(this));
                 osmium::apply(begin, end, handler);
                 sort_member_meta();
             }
 
-            template <class TSource>
+            template <typename TSource>
             void read_relations(TSource& source) {
                 read_relations(std::begin(source), std::end(source));
                 source.close();
@@ -489,30 +569,31 @@ namespace osmium {
 
             void moving_in_buffer(size_t old_offset, size_t new_offset) {
                 const osmium::OSMObject& object = m_members_buffer.get<osmium::OSMObject>(old_offset);
-                auto& mmv = member_meta(object.type());
-                auto range = std::equal_range(mmv.begin(), mmv.end(), osmium::relations::MemberMeta(object.id()));
-                for (auto it = range.first; it != range.second; ++it) {
-                    assert(it->buffer_offset() == old_offset);
-                    it->set_buffer_offset(new_offset);
+                auto range = find_member_meta(object.type(), object.id());
+                for (auto& member_meta : range) {
+                    assert(member_meta.buffer_offset() == old_offset);
+                    member_meta.set_buffer_offset(new_offset);
                 }
             }
 
             /**
              * Decide whether to purge removed members and then do it.
              *
-             * Currently the purging is done every thousand calls.
+             * Currently the purging is done every 10000 calls.
              * This could probably be improved upon.
              */
             void possibly_purge_removed_members() {
                 ++m_count_complete;
                 if (m_count_complete > 10000) { // XXX
-                    const size_t size_before = m_members_buffer.committed();
+//                    const size_t size_before = m_members_buffer.committed();
                     m_members_buffer.purge_removed(this);
+/*
                     const size_t size_after = m_members_buffer.committed();
                     double percent = static_cast<double>(size_before - size_after);
                     percent /= size_before;
                     percent *= 100;
                     std::cerr << "PURGE (size before=" << size_before << " after=" << size_after << " purged=" << (size_before - size_after) << " / " << static_cast<int>(percent) << "%)\n";
+*/
                     m_count_complete = 0;
                 }
             }

@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -35,12 +35,13 @@ DEALINGS IN THE SOFTWARE.
 
 #include <osmium/memory/item.hpp>
 #include <osmium/osm/entity_bits.hpp>
+#include <osmium/osm/item_type.hpp>
 
 namespace osmium {
 
     namespace detail {
 
-        template <class TSubitem, class TIter>
+        template <typename TSubitem, typename TIter>
         inline TSubitem& subitem_of_type(TIter it, TIter end) {
             for (; it != end; ++it) {
                 if (it->type() == TSubitem::itemtype) {

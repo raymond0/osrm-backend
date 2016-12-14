@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,11 +33,14 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <algorithm>
 #include <cstddef>
+#include <stdexcept>
+#include <string>
 
-#include <osmium/index/detail/typed_mmap.hpp>
 #include <osmium/index/detail/mmap_vector_base.hpp>
 #include <osmium/index/detail/tmpfile.hpp>
+#include <osmium/util/file.hpp>
 
 namespace osmium {
 
@@ -48,33 +51,34 @@ namespace osmium {
          * internally.
          */
         template <typename T>
-        class mmap_vector_file : public mmap_vector_base<T, mmap_vector_file> {
+        class mmap_vector_file : public mmap_vector_base<T> {
+
+            size_t filesize(int fd) const {
+                const size_t size = osmium::util::file_size(fd);
+
+                if (size % sizeof(T) != 0) {
+                    throw std::runtime_error("Index file has wrong size (must be multiple of " + std::to_string(sizeof(T)) + ").");
+                }
+
+                return size / sizeof(T);
+            }
 
         public:
 
-            explicit mmap_vector_file() :
-                mmap_vector_base<T, osmium::detail::mmap_vector_file>(
+            mmap_vector_file() :
+                mmap_vector_base<T>(
                     osmium::detail::create_tmp_file(),
-                    osmium::detail::mmap_vector_size_increment,
-                    0) {
+                    osmium::detail::mmap_vector_size_increment) {
             }
 
             explicit mmap_vector_file(int fd) :
-                mmap_vector_base<T, osmium::detail::mmap_vector_file>(
+                mmap_vector_base<T>(
                     fd,
-                    osmium::detail::typed_mmap<T>::file_size(fd) == 0 ?
-                        osmium::detail::mmap_vector_size_increment :
-                        osmium::detail::typed_mmap<T>::file_size(fd),
-                    osmium::detail::typed_mmap<T>::file_size(fd)) {
+                    std::max(osmium::detail::mmap_vector_size_increment, filesize(fd)),
+                    filesize(fd)) {
             }
 
-            void reserve(size_t new_capacity) {
-                if (new_capacity > this->capacity()) {
-                    typed_mmap<T>::unmap(this->data(), this->capacity());
-                    this->data(typed_mmap<T>::grow_and_map(new_capacity, this->m_fd));
-                    this->m_capacity = new_capacity;
-                }
-            }
+            ~mmap_vector_file() noexcept = default;
 
         }; // class mmap_vector_file
 

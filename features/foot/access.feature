@@ -5,7 +5,7 @@ Feature: Foot - Access tags on ways
     Background:
         Given the profile "foot"
 
-    Scenario: Foot - Access tag hierachy on ways
+    Scenario: Foot - Access tag hierarchy on ways
         Then routability should be
             | highway  | access | foot | bothw |
             | footway  |        |      | x     |
@@ -51,7 +51,8 @@ Feature: Foot - Access tags on ways
             | no           |              |       |
             | private      |              |       |
             | agricultural |              |       |
-            | forestery    |              |       |
+            | forestry     |              |       |
+            | delivery     |              |       |
             |              | yes          | x     |
             |              | permissive   | x     |
             |              | designated   | x     |
@@ -59,7 +60,8 @@ Feature: Foot - Access tags on ways
             |              | no           |       |
             |              | private      |       |
             |              | agricultural |       |
-            |              | forestery    |       |
+            |              | forestry     |       |
+            |              | delivery     |       |
 
     Scenario: Foot - Access tags on both node and way
         Then routability should be
@@ -93,3 +95,11 @@ Feature: Foot - Access tags on ways
             | footway  |      | no            |       | x     |
             | motorway |      |               | yes   |       |
             | footway  |      |               | no    | x     |
+
+    Scenario: Foot - Bridleways when access is explicit
+        Then routability should be
+            | highway   | horse      | bicycle | foot | bothw |
+            | bridleway |            |         | yes  | x     |
+            | bridleway |            | yes     |      |       |
+            | bridleway | designated |         |      |       |
+            | bridleway |            |         |      |       |

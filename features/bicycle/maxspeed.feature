@@ -7,15 +7,15 @@ Feature: Bike - Max speed restrictions
 
     Scenario: Bicycle - Respect maxspeeds when lower that way type speed
         Then routability should be
-            | highway     | maxspeed | bothw   |
-            | residential |          | 15 km/h |
-            | residential | 10       | 10 km/h |
+            | highway     | maxspeed | bothw        |
+            | residential |          | 15 km/h +- 1 |
+            | residential | 10       | 10 km/h +- 1 |
 
     Scenario: Bicycle - Ignore maxspeed when higher than way speed
         Then routability should be
-            | highway     | maxspeed | bothw   |
-            | residential |          | 15 km/h |
-            | residential | 80       | 15 km/h |
+            | highway     | maxspeed | bothw        |
+            | residential |          | 15 km/h +- 1 |
+            | residential | 80       | 15 km/h      |
 
     @todo
     Scenario: Bicycle - Maxspeed formats
@@ -40,7 +40,9 @@ Feature: Bike - Max speed restrictions
 
     Scenario: Bike - Do not use maxspeed when higher that way type speed
         Given the node map
-            | a | b | c |
+            """
+            a b c
+            """
 
         And the ways
             | nodes | highway     | maxspeed |
@@ -48,9 +50,9 @@ Feature: Bike - Max speed restrictions
             | bc    | residential | 80       |
 
         When I route I should get
-            | from | to | route | speed   |
-            | a    | b  | ab    | 15 km/h |
-            | b    | c  | bc    | 15 km/h |
+            | from | to | route    | speed   |
+            | a    | b  | ab,ab    | 15 km/h |
+            | b    | c  | bc,bc    | 15 km/h |
 
     Scenario: Bike - Forward/backward maxspeed
         Given the shortcuts
@@ -61,14 +63,14 @@ Feature: Bike - Max speed restrictions
             | snail | 720s ~10% |
 
         Then routability should be
-            | maxspeed | maxspeed:forward | maxspeed:backward | forw    | backw   |
-            |          |                  |                   | 15 km/h | 15 km/h |
-            | 10       |                  |                   | 10 km/h | 10 km/h |
-            |          | 10               |                   | 10 km/h | 15 km/h |
-            |          |                  | 10                | 15 km/h | 10 km/h |
-            | 2        | 10               |                   | 10 km/h | 2 km/h  |
-            | 2        |                  | 10                | 2 km/h  | 10 km/h |
-            | 2        | 5                | 10                | 5 km/h  | 10 km/h |
+            | maxspeed | maxspeed:forward | maxspeed:backward | forw         | backw        |
+            |          |                  |                   | 15 km/h +- 1 | 15 km/h +- 1 |
+            | 10       |                  |                   | 10 km/h +- 1 | 10 km/h +- 1 |
+            |          | 10               |                   | 10 km/h +- 1 | 15 km/h +- 1 |
+            |          |                  | 10                | 15 km/h      | 10 km/h +- 1 |
+            | 2        | 10               |                   | 10 km/h +- 1 | 2 km/h       |
+            | 2        |                  | 10                | 2 km/h       | 10 km/h +- 1 |
+            | 2        | 5                | 10                | 5 km/h       | 10 km/h +- 1 |
 
     Scenario: Bike - Maxspeed should not allow routing on unroutable ways
         Then routability should be

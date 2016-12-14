@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -45,7 +45,7 @@ DEALINGS IN THE SOFTWARE.
 # include <io.h>
 #endif
 
-#include <osmium/io/overwrite.hpp>
+#include <osmium/io/writer_options.hpp>
 
 namespace osmium {
 
@@ -68,23 +68,26 @@ namespace osmium {
              */
             inline int open_for_writing(const std::string& filename, osmium::io::overwrite allow_overwrite = osmium::io::overwrite::no) {
                 if (filename == "" || filename == "-") {
-                    return 1; // stdout
-                } else {
-                    int flags = O_WRONLY | O_CREAT;
-                    if (allow_overwrite == osmium::io::overwrite::allow) {
-                        flags |= O_TRUNC;
-                    } else {
-                        flags |= O_EXCL;
-                    }
 #ifdef _WIN32
-                    flags |= O_BINARY;
+                    _setmode(1, _O_BINARY);
 #endif
-                    int fd = ::open(filename.c_str(), flags, 0666);
-                    if (fd < 0) {
-                        throw std::system_error(errno, std::system_category(), std::string("Open failed for '") + filename + "'");
-                    }
-                    return fd;
+                    return 1; // stdout
                 }
+
+                int flags = O_WRONLY | O_CREAT;
+                if (allow_overwrite == osmium::io::overwrite::allow) {
+                    flags |= O_TRUNC;
+                } else {
+                    flags |= O_EXCL;
+                }
+#ifdef _WIN32
+                flags |= O_BINARY;
+#endif
+                const int fd = ::open(filename.c_str(), flags, 0666);
+                if (fd < 0) {
+                    throw std::system_error(errno, std::system_category(), std::string("Open failed for '") + filename + "'");
+                }
+                return fd;
             }
 
             /**
@@ -98,17 +101,17 @@ namespace osmium {
             inline int open_for_reading(const std::string& filename) {
                 if (filename == "" || filename == "-") {
                     return 0; // stdin
-                } else {
-                    int flags = O_RDONLY;
-#ifdef _WIN32
-                    flags |= O_BINARY;
-#endif
-                    int fd = ::open(filename.c_str(), flags);
-                    if (fd < 0) {
-                        throw std::system_error(errno, std::system_category(), std::string("Open failed for '") + filename + "'");
-                    }
-                    return fd;
                 }
+
+                int flags = O_RDONLY;
+#ifdef _WIN32
+                flags |= O_BINARY;
+#endif
+                const int fd = ::open(filename.c_str(), flags);
+                if (fd < 0) {
+                    throw std::system_error(errno, std::system_category(), std::string("Open failed for '") + filename + "'");
+                }
+                return fd;
             }
 
             /**
@@ -122,14 +125,14 @@ namespace osmium {
              * @throws std::system_error On error.
              */
             inline void reliable_write(const int fd, const unsigned char* output_buffer, const size_t size) {
-                constexpr size_t max_write = 100 * 1024 * 1024; // Max 100 MByte per write
+                constexpr size_t max_write = 100L * 1024L * 1024L; // Max 100 MByte per write
                 size_t offset = 0;
                 do {
                     auto write_count = size - offset;
                     if (write_count > max_write) {
                         write_count = max_write;
                     }
-                    auto length = ::write(fd, output_buffer + offset, static_cast<unsigned int>(write_count));
+                    const auto length = ::write(fd, output_buffer + offset, static_cast<unsigned int>(write_count));
                     if (length < 0) {
                         throw std::system_error(errno, std::system_category(), "Write failed");
                     }
@@ -149,6 +152,22 @@ namespace osmium {
              */
             inline void reliable_write(const int fd, const char* output_buffer, const size_t size) {
                 reliable_write(fd, reinterpret_cast<const unsigned char*>(output_buffer), size);
+            }
+
+            inline void reliable_fsync(const int fd) {
+#ifdef _WIN32
+                if (_commit(fd) != 0) {
+#else
+                if (::fsync(fd) != 0) {
+#endif
+                    throw std::system_error(errno, std::system_category(), "Fsync failed");
+                }
+            }
+
+            inline void reliable_close(const int fd) {
+                if (::close(fd) != 0) {
+                    throw std::system_error(errno, std::system_category(), "Close failed");
+                }
             }
 
         } // namespace detail

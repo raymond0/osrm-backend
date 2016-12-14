@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -35,7 +35,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
+
+#include <osmium/util/cast.hpp>
 
 namespace osmium {
 
@@ -44,18 +45,23 @@ namespace osmium {
 
     namespace builder {
         class Builder;
-    }
+    } // namespace builder
+
+    enum class diff_indicator_type {
+        none  = 0,
+        left  = 1,
+        right = 2,
+        both  = 3
+    }; // diff_indicator_type
 
     namespace memory {
 
-        typedef uint32_t item_size_type;
+        using item_size_type = uint32_t;
 
         // align datastructures to this many bytes
-        constexpr item_size_type align_bytes = 8;
+        constexpr const item_size_type align_bytes = 8;
 
-        template <typename T>
-        inline T padded_length(T length) noexcept {
-            static_assert(std::is_integral<T>::value && std::is_unsigned<T>::value, "Template parameter must be unsigned integral type");
+        inline constexpr std::size_t padded_length(std::size_t length) noexcept {
             return (length + align_bytes - 1) & ~(align_bytes - 1);
         }
 
@@ -101,12 +107,13 @@ namespace osmium {
             item_size_type m_size;
             item_type m_type;
             uint16_t m_removed : 1;
-            uint16_t m_padding : 15;
+            uint16_t m_diff : 2;
+            uint16_t m_padding : 13;
 
-            template <class TMember>
+            template <typename TMember>
             friend class CollectionIterator;
 
-            template <class TMember>
+            template <typename TMember>
             friend class ItemIterator;
 
             friend class osmium::builder::Builder;
@@ -122,6 +129,7 @@ namespace osmium {
                 m_size(size),
                 m_type(type),
                 m_removed(false),
+                m_diff(0),
                 m_padding(0) {
             }
 
@@ -151,7 +159,7 @@ namespace osmium {
             }
 
             item_size_type padded_size() const {
-                return padded_length(m_size);
+                return static_cast_with_assert<item_size_type>(padded_length(m_size));
             }
 
             item_type type() const noexcept {
@@ -164,6 +172,19 @@ namespace osmium {
 
             void set_removed(bool removed) noexcept {
                 m_removed = removed;
+            }
+
+            diff_indicator_type diff() const noexcept {
+                return diff_indicator_type(m_diff);
+            }
+
+            char diff_as_char() const noexcept {
+                static constexpr const char* diff_chars = "*-+ ";
+                return diff_chars[m_diff];
+            }
+
+            void set_diff(diff_indicator_type diff) noexcept {
+                m_diff = uint16_t(diff);
             }
 
         }; // class Item

@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -50,10 +50,10 @@ namespace osmium {
             template <typename TId, typename TValue>
             class HybridIterator {
 
-                typedef SparseMemArray<TId, TValue> main_map_type;
-                typedef SparseMemMultimap<TId, TValue> extra_map_type;
+                using main_map_type  = SparseMemArray<TId, TValue>;
+                using extra_map_type = SparseMemMultimap<TId, TValue>;
 
-                typedef typename std::pair<TId, TValue> element_type;
+                using element_type = typename std::pair<TId, TValue>;
 
                 typename main_map_type::iterator m_begin_main;
                 typename main_map_type::iterator m_end_main;
@@ -62,15 +62,17 @@ namespace osmium {
 
             public:
 
-                explicit HybridIterator(typename main_map_type::iterator begin_main,
-                               typename main_map_type::iterator end_main,
-                               typename extra_map_type::iterator begin_extra,
-                               typename extra_map_type::iterator end_extra) :
+                 HybridIterator(typename main_map_type::iterator begin_main,
+                                typename main_map_type::iterator end_main,
+                                typename extra_map_type::iterator begin_extra,
+                                typename extra_map_type::iterator end_extra) :
                     m_begin_main(begin_main),
                     m_end_main(end_main),
                     m_begin_extra(begin_extra),
                     m_end_extra(end_extra) {
                 }
+
+                ~HybridIterator() noexcept = default;
 
                 HybridIterator& operator++() {
                     if (m_begin_main == m_end_main) {
@@ -118,27 +120,29 @@ namespace osmium {
             template <typename TId, typename TValue>
             class Hybrid : public Multimap<TId, TValue> {
 
-                typedef SparseMemArray<TId, TValue> main_map_type;
-                typedef SparseMemMultimap<TId, TValue> extra_map_type;
+                using main_map_type  = SparseMemArray<TId, TValue>;
+                using extra_map_type = SparseMemMultimap<TId, TValue>;
 
                 main_map_type m_main;
                 extra_map_type m_extra;
 
             public:
 
-                typedef HybridIterator<TId, TValue> iterator;
-                typedef const HybridIterator<TId, TValue> const_iterator;
+                using iterator       = HybridIterator<TId, TValue>;
+                using const_iterator = const HybridIterator<TId, TValue>;
 
                 Hybrid() :
                     m_main(),
                     m_extra() {
                 }
 
-                size_t size() const override final {
+                ~Hybrid() noexcept = default;
+
+                size_t size() const final {
                     return m_main.size() + m_extra.size();
                 }
 
-                size_t used_memory() const override final {
+                size_t used_memory() const final {
                     return m_main.used_memory() + m_extra.used_memory();
                 }
 
@@ -150,7 +154,7 @@ namespace osmium {
                     m_main.set(id, value);
                 }
 
-                void set(const TId id, const TValue value) override final {
+                void set(const TId id, const TValue value) final {
                     m_extra.set(id, value);
                 }
 
@@ -175,17 +179,17 @@ namespace osmium {
                     m_main.sort();
                 }
 
-                void dump_as_list(const int fd) override final {
+                void dump_as_list(const int fd) final {
                     consolidate();
                     m_main.dump_as_list(fd);
                 }
 
-                void clear() override final {
+                void clear() final {
                     m_main.clear();
                     m_extra.clear();
                 }
 
-                void sort() override final {
+                void sort() final {
                     m_main.sort();
                 }
 

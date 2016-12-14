@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -40,11 +40,9 @@ DEALINGS IN THE SOFTWARE.
 #include <boost/iterator/indirect_iterator.hpp>
 
 #include <osmium/handler.hpp>
-#include <osmium/memory/item.hpp>
 #include <osmium/osm/object.hpp>
 
 // IWYU pragma: no_forward_declare osmium::OSMObject
-// IWYU pragma: no_forward_declare osmium::memory::Item
 
 namespace osmium {
 
@@ -70,8 +68,8 @@ namespace osmium {
 
     public:
 
-        typedef boost::indirect_iterator<std::vector<osmium::OSMObject*>::iterator, osmium::OSMObject> iterator;
-        typedef boost::indirect_iterator<std::vector<osmium::OSMObject*>::const_iterator, const osmium::OSMObject> const_iterator;
+        using iterator       = boost::indirect_iterator<std::vector<osmium::OSMObject*>::iterator, osmium::OSMObject>;
+        using const_iterator = boost::indirect_iterator<std::vector<osmium::OSMObject*>::const_iterator, const osmium::OSMObject>;
 
         ObjectPointerCollection() noexcept :
             m_objects() {
@@ -84,7 +82,7 @@ namespace osmium {
         /**
          * Sort objects according to the given order functor.
          */
-        template <class TCompare>
+        template <typename TCompare>
         void sort(TCompare&& compare) {
             std::sort(m_objects.begin(), m_objects.end(), std::forward<TCompare>(compare));
         }

@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -37,7 +37,6 @@ DEALINGS IN THE SOFTWARE.
 #include <utility>
 
 #include <osmium/osm/location.hpp>
-#include <osmium/util/compatibility.hpp>
 
 namespace osmium {
 
@@ -65,12 +64,12 @@ namespace osmium {
         ~Segment() = default;
 
         /// Return first Location of Segment.
-        OSMIUM_CONSTEXPR osmium::Location first() const noexcept {
+        constexpr osmium::Location first() const noexcept {
             return m_first;
         }
 
         /// Return second Location of Segment.
-        OSMIUM_CONSTEXPR osmium::Location second() const noexcept {
+        constexpr osmium::Location second() const noexcept {
             return m_second;
         }
 
@@ -84,11 +83,11 @@ namespace osmium {
     }; // class Segment
 
     /// Segments are equal if both their locations are equal
-    inline OSMIUM_CONSTEXPR bool operator==(const Segment& lhs, const Segment& rhs) noexcept {
+    inline constexpr bool operator==(const Segment& lhs, const Segment& rhs) noexcept {
         return lhs.first() == rhs.first() && lhs.second() == rhs.second();
     }
 
-    inline OSMIUM_CONSTEXPR bool operator!=(const Segment& lhs, const Segment& rhs) noexcept {
+    inline constexpr bool operator!=(const Segment& lhs, const Segment& rhs) noexcept {
         return ! (lhs == rhs);
     }
 

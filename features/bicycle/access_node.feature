@@ -5,22 +5,23 @@ Feature: Bike - Access tags on nodes
     Background:
         Given the profile "bicycle"
 
-    Scenario: Bike - Access tag hierachy on nodes
+    Scenario: Bike - Access tag hierarchy on nodes
         Then routability should be
-            | node/access | node/vehicle | node/bicycle | bothw |
-            |             |              |              | x     |
-            | yes         |              |              | x     |
-            | no          |              |              |       |
-            |             | yes          |              | x     |
-            |             | no           |              |       |
-            | no          | yes          |              | x     |
-            | yes         | no           |              |       |
-            |             |              | yes          | x     |
-            |             |              | no           |       |
-            | no          |              | yes          | x     |
-            | yes         |              | no           |       |
-            |             | no           | yes          | x     |
-            |             | yes          | no           |       |
+            | node/access | node/vehicle | node/bicycle | node/highway  | bothw |
+            |             |              |              |               | x     |
+            | yes         |              |              |               | x     |
+            | no          |              |              |               |       |
+            |             | yes          |              |               | x     |
+            |             | no           |              |               |       |
+            | no          | yes          |              |               | x     |
+            | yes         | no           |              |               |       |
+            |             |              | yes          |               | x     |
+            |             |              | no           |               |       |
+            |             |              | no           | crossing      | x     |
+            | no          |              | yes          |               | x     |
+            | yes         |              | no           |               |       |
+            |             | no           | yes          |               | x     |
+            |             | yes          | no           |               |       |
 
     Scenario: Bike - Overwriting implied acccess on nodes doesn't overwrite way
         Then routability should be
@@ -45,7 +46,8 @@ Feature: Bike - Access tags on nodes
             | no           |              |              |       |
             | private      |              |              |       |
             | agricultural |              |              |       |
-            | forestery    |              |              |       |
+            | forestry     |              |              |       |
+            | delivery     |              |              |       |
             |              | yes          |              | x     |
             |              | permissive   |              | x     |
             |              | designated   |              | x     |
@@ -53,7 +55,8 @@ Feature: Bike - Access tags on nodes
             |              | no           |              |       |
             |              | private      |              |       |
             |              | agricultural |              |       |
-            |              | forestery    |              |       |
+            |              | forestry     |              |       |
+            |              | delivery     |              |       |
             |              |              | yes          | x     |
             |              |              | permissive   | x     |
             |              |              | designated   | x     |
@@ -61,4 +64,5 @@ Feature: Bike - Access tags on nodes
             |              |              | no           |       |
             |              |              | private      |       |
             |              |              | agricultural |       |
-            |              |              | forestery    |       |
+            |              |              | forestry     |       |
+            |              |              | delivery     |       |

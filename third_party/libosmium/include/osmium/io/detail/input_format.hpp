@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,13 +33,16 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <exception>
 #include <functional>
+#include <future>
 #include <map>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <utility>
 
+#include <osmium/io/detail/queue_util.hpp>
+#include <osmium/io/error.hpp>
 #include <osmium/io/file.hpp>
 #include <osmium/io/file_format.hpp>
 #include <osmium/io/header.hpp>
@@ -48,106 +51,161 @@ DEALINGS IN THE SOFTWARE.
 
 namespace osmium {
 
-    namespace thread {
-        template <typename T> class Queue;
-    } // namespace thread
-
     namespace io {
 
         namespace detail {
 
-            /**
-             * Virtual base class for all classes reading OSM files in different
-             * formats.
-             *
-             * Do not use this class or derived classes directly. Use the
-             * osmium::io::Reader class instead.
-             */
-            class InputFormat {
+            struct reader_options {
+                osmium::osm_entity_bits::type read_which_entities = osm_entity_bits::all;
+                osmium::io::read_meta read_metadata = read_meta::yes;
+            };
+
+            class Parser {
+
+                future_buffer_queue_type& m_output_queue;
+                std::promise<osmium::io::Header>& m_header_promise;
+                queue_wrapper<std::string> m_input_queue;
+                reader_options m_options;
+                bool m_header_is_done;
 
             protected:
 
-                osmium::io::File m_file;
-                osmium::osm_entity_bits::type m_read_which_entities;
-                osmium::io::Header m_header;
-
-                explicit InputFormat(const osmium::io::File& file, osmium::osm_entity_bits::type read_which_entities) :
-                    m_file(file),
-                    m_read_which_entities(read_which_entities) {
-                    m_header.set_has_multiple_object_versions(m_file.has_multiple_object_versions());
+                std::string get_input() {
+                    return m_input_queue.pop();
                 }
 
-                InputFormat(const InputFormat&) = delete;
-                InputFormat(InputFormat&&) = delete;
+                bool input_done() const {
+                    return m_input_queue.has_reached_end_of_data();
+                }
 
-                InputFormat& operator=(const InputFormat&) = delete;
-                InputFormat& operator=(InputFormat&&) = delete;
+                osmium::osm_entity_bits::type read_types() const noexcept {
+                    return m_options.read_which_entities;
+                }
+
+                osmium::io::read_meta read_metadata() const noexcept {
+                    return m_options.read_metadata;
+                }
+
+                bool header_is_done() const noexcept {
+                    return m_header_is_done;
+                }
+
+                void set_header_value(const osmium::io::Header& header) {
+                    if (!m_header_is_done) {
+                        m_header_is_done = true;
+                        m_header_promise.set_value(header);
+                    }
+                }
+
+                void set_header_exception(const std::exception_ptr& exception) {
+                    if (!m_header_is_done) {
+                        m_header_is_done = true;
+                        m_header_promise.set_exception(exception);
+                    }
+                }
+
+                /**
+                 * Wrap the buffer into a future and add it to the output queue.
+                 */
+                void send_to_output_queue(osmium::memory::Buffer&& buffer) {
+                    add_to_queue(m_output_queue, std::move(buffer));
+                }
+
+                void send_to_output_queue(std::future<osmium::memory::Buffer>&& future) {
+                    m_output_queue.push(std::move(future));
+                }
 
             public:
 
-                virtual ~InputFormat() {
+                Parser(future_string_queue_type& input_queue,
+                       future_buffer_queue_type& output_queue,
+                       std::promise<osmium::io::Header>& header_promise,
+                       osmium::io::detail::reader_options options) :
+                    m_output_queue(output_queue),
+                    m_header_promise(header_promise),
+                    m_input_queue(input_queue),
+                    m_options(options),
+                    m_header_is_done(false) {
                 }
 
-                virtual osmium::memory::Buffer read() = 0;
+                Parser(const Parser&) = delete;
+                Parser& operator=(const Parser&) = delete;
 
-                virtual void close() {
+                Parser(Parser&&) = delete;
+                Parser& operator=(Parser&&) = delete;
+
+                virtual ~Parser() noexcept = default;
+
+                virtual void run() = 0;
+
+                void parse() {
+                    try {
+                        run();
+                    } catch (...) {
+                        std::exception_ptr exception = std::current_exception();
+                        set_header_exception(exception);
+                        add_to_queue(m_output_queue, std::move(exception));
+                    }
+
+                    add_end_of_data_to_queue(m_output_queue);
                 }
 
-                virtual osmium::io::Header header() {
-                    return m_header;
-                }
-
-            }; // class InputFormat
+            }; // class Parser
 
             /**
-             * This factory class is used to create objects that read OSM data
-             * written in a specified format.
+             * This factory class is used to create objects that decode OSM
+             * data written in a specified format.
              *
-             * Do not use this class directly. Instead use the osmium::io::Reader
-             * class.
+             * Do not use this class directly. Use the osmium::io::Reader
+             * class instead.
              */
-            class InputFormatFactory {
+            class ParserFactory {
 
             public:
 
-                typedef std::function<osmium::io::detail::InputFormat*(const osmium::io::File&, osmium::osm_entity_bits::type read_which_entities, osmium::thread::Queue<std::string>&)> create_input_type;
+                using create_parser_type = std::function<std::unique_ptr<Parser>(future_string_queue_type&,
+                                                                                 future_buffer_queue_type&,
+                                                                                 std::promise<osmium::io::Header>& header_promise,
+                                                                                 osmium::io::detail::reader_options options)>;
 
             private:
 
-                typedef std::map<osmium::io::file_format, create_input_type> map_type;
+                using map_type = std::map<osmium::io::file_format, create_parser_type>;
 
                 map_type m_callbacks;
 
-                InputFormatFactory() :
+                ParserFactory() :
                     m_callbacks() {
                 }
 
             public:
 
-                static InputFormatFactory& instance() {
-                    static InputFormatFactory factory;
+                static ParserFactory& instance() {
+                    static ParserFactory factory;
                     return factory;
                 }
 
-                bool register_input_format(osmium::io::file_format format, create_input_type create_function) {
+                bool register_parser(osmium::io::file_format format, create_parser_type create_function) {
                     if (! m_callbacks.insert(map_type::value_type(format, create_function)).second) {
                         return false;
                     }
                     return true;
                 }
 
-                std::unique_ptr<osmium::io::detail::InputFormat> create_input(const osmium::io::File& file, osmium::osm_entity_bits::type read_which_entities, osmium::thread::Queue<std::string>& input_queue) {
-                    file.check();
-
+                create_parser_type get_creator_function(const osmium::io::File& file) {
                     auto it = m_callbacks.find(file.format());
-                    if (it != m_callbacks.end()) {
-                        return std::unique_ptr<osmium::io::detail::InputFormat>((it->second)(file, read_which_entities, input_queue));
+                    if (it == m_callbacks.end()) {
+                        throw unsupported_file_format_error(
+                                std::string("Can not open file '") +
+                                file.filename() +
+                                "' with type '" +
+                                as_string(file.format()) +
+                                "'. No support for reading this format in this program.");
                     }
-
-                    throw std::runtime_error(std::string("Support for input format '") + as_string(file.format()) + "' not compiled into this binary.");
+                    return it->second;
                 }
 
-            }; // class InputFormatFactory
+            }; // class ParserFactory
 
         } // namespace detail
 

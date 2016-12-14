@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,47 +33,26 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <chrono>
-#include <cinttypes>
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <future>
 #include <iterator>
 #include <memory>
-#include <ratio>
 #include <string>
-#include <thread>
 #include <utility>
 
-#include <boost/version.hpp>
-
-#ifdef __clang__
-# pragma clang diagnostic push
-# pragma clang diagnostic ignored "-Wmissing-noreturn"
-# pragma clang diagnostic ignored "-Wsign-conversion"
-#endif
-
-#if BOOST_VERSION >= 104800
-# include <boost/regex/pending/unicode_iterator.hpp>
-#else
-# include <boost_unicode_iterator.hpp>
-#endif
-
-#ifdef __clang__
-# pragma clang diagnostic pop
-#endif
-
-#include <osmium/handler.hpp>
 #include <osmium/io/detail/output_format.hpp>
+#include <osmium/io/detail/queue_util.hpp>
+#include <osmium/io/detail/string_util.hpp>
+#include <osmium/io/file.hpp>
 #include <osmium/io/file_format.hpp>
 #include <osmium/memory/buffer.hpp>
 #include <osmium/memory/collection.hpp>
+#include <osmium/memory/item_iterator.hpp>
 #include <osmium/osm/box.hpp>
 #include <osmium/osm/changeset.hpp>
 #include <osmium/osm/item_type.hpp>
 #include <osmium/osm/location.hpp>
 #include <osmium/osm/node.hpp>
+#include <osmium/osm/node_ref.hpp>
 #include <osmium/osm/object.hpp>
 #include <osmium/osm/relation.hpp>
 #include <osmium/osm/tag.hpp>
@@ -86,104 +65,105 @@ namespace osmium {
 
     namespace io {
 
-        class File;
-
         namespace detail {
+
+            struct opl_output_options {
+
+                /// Should metadata of objects be added?
+                bool add_metadata;
+
+                /// Should node locations be added to ways?
+                bool locations_on_ways;
+
+                /// Write in form of a diff file?
+                bool format_as_diff;
+
+            };
 
             /**
              * Writes out one buffer with OSM data in OPL format.
              */
-            class OPLOutputBlock : public osmium::handler::Handler {
+            class OPLOutputBlock : public OutputBlock {
 
-                static constexpr size_t tmp_buffer_size = 100;
+                opl_output_options m_options;
 
-                std::shared_ptr<osmium::memory::Buffer> m_input_buffer;
-
-                std::shared_ptr<std::string> m_out;
-
-                char m_tmp_buffer[tmp_buffer_size+1];
-
-                template <typename... TArgs>
-                void output_formatted(const char* format, TArgs&&... args) {
-#ifndef NDEBUG
-                    int len =
-#endif
-#ifndef _MSC_VER
-                    snprintf(m_tmp_buffer, tmp_buffer_size, format, std::forward<TArgs>(args)...);
-#else
-                    _snprintf(m_tmp_buffer, tmp_buffer_size, format, std::forward<TArgs>(args)...);
-#endif
-                    assert(len > 0 && static_cast<size_t>(len) < tmp_buffer_size);
-                    *m_out += m_tmp_buffer;
+                void append_encoded_string(const char* data) {
+                    osmium::io::detail::append_utf8_encoded_string(*m_out, data);
                 }
 
-                void append_encoded_string(const std::string& data) {
-                    boost::u8_to_u32_iterator<std::string::const_iterator> it(data.cbegin(), data.cbegin(), data.cend());
-                    boost::u8_to_u32_iterator<std::string::const_iterator> end(data.cend(), data.cend(), data.cend());
-                    boost::utf8_output_iterator<std::back_insert_iterator<std::string>> oit(std::back_inserter(*m_out));
+                void write_field_int(char c, int64_t value) {
+                    *m_out += c;
+                    output_int(value);
+                }
 
-                    for (; it != end; ++it) {
-                        uint32_t c = *it;
+                void write_field_timestamp(char c, const osmium::Timestamp& timestamp) {
+                    *m_out += c;
+                    *m_out += timestamp.to_iso();
+                }
 
-                        // This is a list of Unicode code points that we let
-                        // through instead of escaping them. It is incomplete
-                        // and can be extended later.
-                        // Generally we don't want to let through any character
-                        // that has special meaning in the OPL format such as
-                        // space, comma, @, etc. and any non-printing characters.
-                        if ((0x0021 <= c && c <= 0x0024) ||
-                            (0x0026 <= c && c <= 0x002b) ||
-                            (0x002d <= c && c <= 0x003c) ||
-                            (0x003e <= c && c <= 0x003f) ||
-                            (0x0041 <= c && c <= 0x007e) ||
-                            (0x00a1 <= c && c <= 0x00ac) ||
-                            (0x00ae <= c && c <= 0x05ff)) {
-                            *oit = c;
-                        } else {
-                            *m_out += '%';
-                            output_formatted("%04x", c);
-                        }
+                void write_tags(const osmium::TagList& tags) {
+                    *m_out += " T";
+
+                    if (tags.empty()) {
+                        return;
+                    }
+
+                    auto it = tags.begin();
+                    append_encoded_string(it->key());
+                    *m_out += '=';
+                    append_encoded_string(it->value());
+
+                    for (++it; it != tags.end(); ++it) {
+                        *m_out += ',';
+                        append_encoded_string(it->key());
+                        *m_out += '=';
+                        append_encoded_string(it->value());
                     }
                 }
 
                 void write_meta(const osmium::OSMObject& object) {
-                    output_formatted("%" PRId64 " v%d d", object.id(), object.version());
-                    *m_out += (object.visible() ? 'V' : 'D');
-                    output_formatted(" c%d t", object.changeset());
-                    *m_out += object.timestamp().to_iso();
-                    output_formatted(" i%d u", object.uid());
-                    append_encoded_string(object.user());
-                    *m_out += " T";
-                    bool first = true;
-                    for (const auto& tag : object.tags()) {
-                        if (first) {
-                            first = false;
-                        } else {
-                            *m_out += ',';
-                        }
-                        append_encoded_string(tag.key());
-                        *m_out += '=';
-                        append_encoded_string(tag.value());
+                    output_int(object.id());
+                    if (m_options.add_metadata) {
+                        *m_out += ' ';
+                        write_field_int('v', object.version());
+                        *m_out += " d";
+                        *m_out += (object.visible() ? 'V' : 'D');
+                        *m_out += ' ';
+                        write_field_int('c', object.changeset());
+                        *m_out += ' ';
+                        write_field_timestamp('t', object.timestamp());
+                        *m_out += ' ';
+                        write_field_int('i', object.uid());
+                        *m_out += " u";
+                        append_encoded_string(object.user());
+                    }
+                    write_tags(object.tags());
+                }
+
+                void write_location(const osmium::Location& location, const char x, const char y) {
+                    *m_out += ' ';
+                    *m_out += x;
+                    if (location) {
+                        osmium::detail::append_location_coordinate_to_string(std::back_inserter(*m_out), location.x());
+                    }
+                    *m_out += ' ';
+                    *m_out += y;
+                    if (location) {
+                        osmium::detail::append_location_coordinate_to_string(std::back_inserter(*m_out), location.y());
                     }
                 }
 
-                void write_location(const osmium::Location location, const char x, const char y) {
-                    if (location) {
-                        output_formatted(" %c%.7f %c%.7f", x, location.lon_without_check(), y, location.lat_without_check());
-                    } else {
-                        *m_out += ' ';
-                        *m_out += x;
-                        *m_out += ' ';
-                        *m_out += y;
+                void write_diff(const osmium::OSMObject& object) {
+                    if (m_options.format_as_diff) {
+                        *m_out += object.diff_as_char();
                     }
                 }
 
             public:
 
-                explicit OPLOutputBlock(osmium::memory::Buffer&& buffer) :
-                    m_input_buffer(std::make_shared<osmium::memory::Buffer>(std::move(buffer))),
-                    m_out(std::make_shared<std::string>()),
-                    m_tmp_buffer() {
+                OPLOutputBlock(osmium::memory::Buffer&& buffer, const opl_output_options& options) :
+                    OutputBlock(std::move(buffer)),
+                    m_options(options) {
                 }
 
                 OPLOutputBlock(const OPLOutputBlock&) = default;
@@ -192,121 +172,147 @@ namespace osmium {
                 OPLOutputBlock(OPLOutputBlock&&) = default;
                 OPLOutputBlock& operator=(OPLOutputBlock&&) = default;
 
-                ~OPLOutputBlock() = default;
+                ~OPLOutputBlock() noexcept = default;
 
                 std::string operator()() {
                     osmium::apply(m_input_buffer->cbegin(), m_input_buffer->cend(), *this);
 
                     std::string out;
-                    std::swap(out, *m_out);
+                    using std::swap;
+                    swap(out, *m_out);
+
                     return out;
                 }
 
                 void node(const osmium::Node& node) {
+                    write_diff(node);
                     *m_out += 'n';
                     write_meta(node);
                     write_location(node.location(), 'x', 'y');
                     *m_out += '\n';
                 }
 
+                void write_field_ref(const osmium::NodeRef& node_ref) {
+                    write_field_int('n', node_ref.ref());
+                    *m_out += 'x';
+                    if (node_ref.location()) {
+                        node_ref.location().as_string(std::back_inserter(*m_out), 'y');
+                    } else {
+                        *m_out += 'y';
+                    }
+                }
+
                 void way(const osmium::Way& way) {
+                    write_diff(way);
                     *m_out += 'w';
                     write_meta(way);
 
                     *m_out += " N";
-                    bool first = true;
-                    for (const auto& node_ref : way.nodes()) {
-                        if (first) {
-                            first = false;
+
+                    if (!way.nodes().empty()) {
+                        auto it = way.nodes().begin();
+                        if (m_options.locations_on_ways) {
+                            write_field_ref(*it);
+                            for (++it; it != way.nodes().end(); ++it) {
+                                *m_out += ',';
+                                write_field_ref(*it);
+                            }
                         } else {
-                            *m_out += ',';
+                            write_field_int('n', it->ref());
+                            for (++it; it != way.nodes().end(); ++it) {
+                                *m_out += ',';
+                                write_field_int('n', it->ref());
+                            }
                         }
-                        output_formatted("n%" PRId64, node_ref.ref());
                     }
+
                     *m_out += '\n';
                 }
 
+                void relation_member(const osmium::RelationMember& member) {
+                    *m_out += item_type_to_char(member.type());
+                    output_int(member.ref());
+                    *m_out += '@';
+                    append_encoded_string(member.role());
+                }
+
                 void relation(const osmium::Relation& relation) {
+                    write_diff(relation);
                     *m_out += 'r';
                     write_meta(relation);
 
                     *m_out += " M";
-                    bool first = true;
-                    for (const auto& member : relation.members()) {
-                        if (first) {
-                            first = false;
-                        } else {
+
+                    if (!relation.members().empty()) {
+                        auto it = relation.members().begin();
+                        relation_member(*it);
+                        for (++it; it != relation.members().end(); ++it) {
                             *m_out += ',';
+                            relation_member(*it);
                         }
-                        *m_out += item_type_to_char(member.type());
-                        output_formatted("%" PRId64 "@", member.ref());
-                        *m_out += member.role();
                     }
+
                     *m_out += '\n';
                 }
 
                 void changeset(const osmium::Changeset& changeset) {
-                    output_formatted("c%d k%d s", changeset.id(), changeset.num_changes());
-                    *m_out += changeset.created_at().to_iso();
-                    *m_out += " e";
-                    *m_out += changeset.closed_at().to_iso();
-                    output_formatted(" i%d u", changeset.uid());
+                    write_field_int('c', changeset.id());
+                    *m_out += ' ';
+                    write_field_int('k', changeset.num_changes());
+                    *m_out += ' ';
+                    write_field_timestamp('s', changeset.created_at());
+                    *m_out += ' ';
+                    write_field_timestamp('e', changeset.closed_at());
+                    *m_out += ' ';
+                    write_field_int('d', changeset.num_comments());
+                    *m_out += ' ';
+                    write_field_int('i', changeset.uid());
+                    *m_out += " u";
                     append_encoded_string(changeset.user());
                     write_location(changeset.bounds().bottom_left(), 'x', 'y');
                     write_location(changeset.bounds().top_right(), 'X', 'Y');
-                    *m_out += " T";
-                    bool first = true;
-                    for (const auto& tag : changeset.tags()) {
-                        if (first) {
-                            first = false;
-                        } else {
-                            *m_out += ',';
-                        }
-                        append_encoded_string(tag.key());
-                        *m_out += '=';
-                        append_encoded_string(tag.value());
-                    }
-
+                    write_tags(changeset.tags());
                     *m_out += '\n';
                 }
 
-            }; // OPLOutputBlock
+            }; // class OPLOutputBlock
 
             class OPLOutputFormat : public osmium::io::detail::OutputFormat {
+
+                opl_output_options m_options;
+
+            public:
+
+                OPLOutputFormat(const osmium::io::File& file, future_string_queue_type& output_queue) :
+                    OutputFormat(output_queue),
+                    m_options() {
+                    m_options.add_metadata      = file.is_not_false("add_metadata");
+                    m_options.locations_on_ways = file.is_true("locations_on_ways");
+                    m_options.format_as_diff    = file.is_true("diff");
+                }
 
                 OPLOutputFormat(const OPLOutputFormat&) = delete;
                 OPLOutputFormat& operator=(const OPLOutputFormat&) = delete;
 
-            public:
+                ~OPLOutputFormat() noexcept final = default;
 
-                OPLOutputFormat(const osmium::io::File& file, data_queue_type& output_queue) :
-                    OutputFormat(file, output_queue) {
-                }
-
-                void write_buffer(osmium::memory::Buffer&& buffer) override final {
-                    m_output_queue.push(osmium::thread::Pool::instance().submit(OPLOutputBlock{std::move(buffer)}));
-                }
-
-                void close() override final {
-                    std::string out;
-                    std::promise<std::string> promise;
-                    m_output_queue.push(promise.get_future());
-                    promise.set_value(out);
+                void write_buffer(osmium::memory::Buffer&& buffer) final {
+                    m_output_queue.push(osmium::thread::Pool::instance().submit(OPLOutputBlock{std::move(buffer), m_options}));
                 }
 
             }; // class OPLOutputFormat
 
-            namespace {
+            // we want the register_output_format() function to run, setting
+            // the variable is only a side-effect, it will never be used
+            const bool registered_opl_output = osmium::io::detail::OutputFormatFactory::instance().register_output_format(osmium::io::file_format::opl,
+                [](const osmium::io::File& file, future_string_queue_type& output_queue) {
+                    return new osmium::io::detail::OPLOutputFormat(file, output_queue);
+            });
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-                const bool registered_opl_output = osmium::io::detail::OutputFormatFactory::instance().register_output_format(osmium::io::file_format::opl,
-                    [](const osmium::io::File& file, data_queue_type& output_queue) {
-                        return new osmium::io::detail::OPLOutputFormat(file, output_queue);
-                });
-#pragma GCC diagnostic pop
-
-            } // anonymous namespace
+            // dummy function to silence the unused variable warning from above
+            inline bool get_registered_opl_output() noexcept {
+                return registered_opl_output;
+            }
 
         } // namespace detail
 

@@ -5,7 +5,7 @@
 
 This file is part of Osmium (http://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2016 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -34,49 +34,32 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include <cstdint>
-#include <cstdlib>
 
 namespace osmium {
 
     /*
-     * The following typedefs are chosen so that they can represent all needed
+     * The following types are chosen so that they can represent all needed
      * numbers and still be reasonably space efficient. As the OSM database
      * needs 64 bit IDs for nodes, this size is used for all object IDs.
      */
-    typedef int64_t  object_id_type;          ///< Type for OSM object (node, way, or relation) IDs.
-    typedef uint64_t unsigned_object_id_type; ///< Type for OSM object (node, way, or relation) IDs where we only allow positive IDs.
-    typedef uint32_t object_version_type;     ///< Type for OSM object version number.
-    typedef uint32_t changeset_id_type;       ///< Type for OSM changeset IDs.
-    typedef uint32_t user_id_type;            ///< Type for OSM user IDs.
-    typedef int32_t  signed_user_id_type;     ///< Type for signed OSM user IDs.
-    typedef uint32_t num_changes_type;        ///< Type for changeset num_changes.
+    using object_id_type          =  int64_t; ///< Type for OSM object (node, way, or relation) IDs.
+    using unsigned_object_id_type = uint64_t; ///< Type for OSM object (node, way, or relation) IDs where we only allow positive IDs.
+    using object_version_type     = uint32_t; ///< Type for OSM object version number.
+    using changeset_id_type       = uint32_t; ///< Type for OSM changeset IDs.
+    using user_id_type            = uint32_t; ///< Type for OSM user IDs.
+    using signed_user_id_type     =  int32_t; ///< Type for signed OSM user IDs.
+    using num_changes_type        = uint32_t; ///< Type for changeset num_changes.
+    using num_comments_type       = uint32_t; ///< Type for changeset num_comments.
 
     /**
      * Size for strings in OSM data such as user names, tag keys, roles, etc.
      * In Osmium they can be up to 2^16 bytes long, but OSM usually has lower
      * defined limits.
      */
-    typedef uint16_t string_size_type;
+    using string_size_type = uint16_t;
 
-    inline object_id_type string_to_object_id(const char* string) {
-        return std::atoll(string);
-    }
-
-    inline object_version_type string_to_object_version(const char* string) {
-        return static_cast<object_version_type>(std::atol(string));
-    }
-
-    inline changeset_id_type string_to_changeset_id(const char* string) {
-        return static_cast<changeset_id_type>(std::atol(string));
-    }
-
-    inline signed_user_id_type string_to_user_id(const char* string) {
-        return static_cast<signed_user_id_type>(std::atol(string));
-    }
-
-    inline num_changes_type string_to_num_changes(const char* string) {
-        return static_cast<num_changes_type>(std::atol(string));
-    }
+    // maximum of 256 characters of max 4 bytes each (in UTF-8 encoding)
+    constexpr const int max_osm_string_length = 256 * 4;
 
 } // namespace osmium
 
