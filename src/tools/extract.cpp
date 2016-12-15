@@ -40,7 +40,10 @@ return_code parseArguments(int argc, char *argv[], extractor::ExtractorConfig &e
         "threads,t",
         boost::program_options::value<unsigned int>(&extractor_config.requested_num_threads)
             ->default_value(tbb::task_scheduler_init::default_num_threads()),
-        "Number of threads to use")(
+        "Number of threads to use")
+        ("boundaryDensity,b",
+        boost::program_options::value<boost::filesystem::path>(&extractor_config.boundary_density_file_name)->default_value("BoundaryDensities.bin"),
+        "Path to a pre-populated densities boundary file.")(
         "generate-edge-lookup",
         boost::program_options::value<bool>(&extractor_config.generate_edge_lookup)
             ->implicit_value(true)

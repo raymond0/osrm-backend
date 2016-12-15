@@ -24,6 +24,8 @@
 #include <mutex>
 #include <sstream>
 
+#include <tbb/tbb.h>
+
 namespace
 {
 namespace oe = osrm::extractor;
@@ -151,7 +153,8 @@ void ExtractionContainers::FlushVectors()
 void ExtractionContainers::PrepareData(ScriptingEnvironment &scripting_environment,
                                        const std::string &output_file_name,
                                        const std::string &restrictions_file_name,
-                                       const std::string &name_file_name)
+                                       const std::string &name_file_name,
+                                       BoundaryList &boundaryList)
 {
     std::ofstream file_out_stream;
     file_out_stream.open(output_file_name.c_str(), std::ios::binary);

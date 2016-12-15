@@ -80,9 +80,9 @@ void ExtractorCallbacks::ProcessRestriction(
  */
 void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const ExtractionWay &parsed_way)
 {
-    if (((0 >= parsed_way.forward_speed) ||
+    if (((0 >= parsed_way.city_forward_speed) ||
          (TRAVEL_MODE_INACCESSIBLE == parsed_way.forward_travel_mode)) &&
-        ((0 >= parsed_way.backward_speed) ||
+        ((0 >= parsed_way.city_backward_speed) ||
          (TRAVEL_MODE_INACCESSIBLE == parsed_way.backward_travel_mode)) &&
         (0 >= parsed_way.duration))
     { // Only true if the way is specified by the speed profile
@@ -118,16 +118,16 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
     }
     else
     {
-        if (parsed_way.forward_speed > 0 &&
+        if (parsed_way.city_forward_speed > 0 &&
             parsed_way.forward_travel_mode != TRAVEL_MODE_INACCESSIBLE)
         {
-            forward_weight_data.speed = parsed_way.forward_speed;
+            forward_weight_data.speed = parsed_way.city_forward_speed;
             forward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;
         }
-        if (parsed_way.backward_speed > 0 &&
+        if (parsed_way.city_backward_speed > 0 &&
             parsed_way.backward_travel_mode != TRAVEL_MODE_INACCESSIBLE)
         {
-            backward_weight_data.speed = parsed_way.backward_speed;
+            backward_weight_data.speed = parsed_way.city_backward_speed;
             backward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;
         }
     }
@@ -288,11 +288,11 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
         name_id = name_iterator->second;
     }
 
-    const bool split_edge = (parsed_way.forward_speed > 0) &&
+    const bool split_edge = (parsed_way.city_forward_speed > 0) &&
                             (TRAVEL_MODE_INACCESSIBLE != parsed_way.forward_travel_mode) &&
-                            (parsed_way.backward_speed > 0) &&
+                            (parsed_way.city_backward_speed > 0) &&
                             (TRAVEL_MODE_INACCESSIBLE != parsed_way.backward_travel_mode) &&
-                            ((parsed_way.forward_speed != parsed_way.backward_speed) ||
+                            ((parsed_way.city_forward_speed != parsed_way.city_backward_speed) ||
                              (parsed_way.forward_travel_mode != parsed_way.backward_travel_mode) ||
                              (turn_lane_id_forward != turn_lane_id_backward));
 

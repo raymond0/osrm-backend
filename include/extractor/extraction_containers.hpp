@@ -12,6 +12,8 @@
 #include <stxxl/vector>
 #include <unordered_map>
 
+#include "BoundaryList.h"
+
 namespace osrm
 {
 namespace extractor
@@ -67,7 +69,8 @@ class ExtractionContainers
     void PrepareData(ScriptingEnvironment &scripting_environment,
                      const std::string &output_file_name,
                      const std::string &restrictions_file_name,
-                     const std::string &names_file_name);
+                     const std::string &names_file_name,
+                     BoundaryList &boundaryList);
 };
 }
 }

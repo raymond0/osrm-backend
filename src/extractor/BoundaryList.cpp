@@ -6,16 +6,16 @@
 //
 //
 
-#include "BoundaryList.h"
+#include "extractor/BoundaryList.h"
 #include <iostream>
 #include <math.h>
 #include <limits.h>
 
 
-static coord coordFromDecimal( FixedPointCoordinate fpc )
+static coord coordFromDecimal( osrm::util::Coordinate fpc )
 {
-    double convertedLong = (((double)fpc.lon) / COORDINATE_PRECISION) * 6371000.0 * M_PI / 180;
-    double convertedLat = log( tan( M_PI_4 + (((double)fpc.lat) / COORDINATE_PRECISION) * M_PI / 360 ) ) * 6371000.0;
+    double convertedLong = double(toFloating(fpc.lon)) * 6371000.0 * M_PI / 180.0;
+    double convertedLat = log( tan( M_PI_4 + double(toFloating(fpc.lat)) * M_PI / 360 ) ) * 6371000.0;
     
     coord c;
     c.x = convertedLong;
@@ -89,7 +89,7 @@ void BoundaryList::ReadDensityTree( std::ifstream &densityIn )
 
 
 
-bool BoundaryList::FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc ) const
+bool BoundaryList::FixedPointCoordinateIsInTown( const osrm::util::Coordinate &fpc ) const
 {
     struct coord c = coordFromDecimal( fpc );
     

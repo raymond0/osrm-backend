@@ -54,6 +54,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include "extractor/BoundaryList.h"
 
 namespace osrm
 {
@@ -111,6 +112,11 @@ transformTurnLaneMapIntoArrays(const guidance::LaneDescriptionMap &turn_lane_map
  */
 int Extractor::run(ScriptingEnvironment &scripting_environment)
 {
+    std::ifstream densityIn;
+    densityIn.open( config.boundary_density_file_name.string() );
+    BoundaryList boundaryList;
+    boundaryList.ReadDensityTree( densityIn );
+
     util::LogPolicy::GetInstance().Unmute();
     TIMER_START(extracting);
 
@@ -229,7 +235,8 @@ int Extractor::run(ScriptingEnvironment &scripting_environment)
         extraction_containers.PrepareData(scripting_environment,
                                           config.output_file_name,
                                           config.restriction_file_name,
-                                          config.names_file_name);
+                                          config.names_file_name,
+                                          boundaryList);
 
         WriteProfileProperties(config.profile_properties_output_path,
                                scripting_environment.GetProfileProperties());

@@ -7,7 +7,7 @@
 //
 
 #include "tbb/tbb.h"
-#include "Boundary.h"
+#include "extractor/Boundary.h"
 #include <limits.h>
 
 void

@@ -205,8 +205,10 @@ void LuaScriptingEnvironment::InitContext(LuaScriptingContext &context)
 
          luabind::class_<ExtractionWay>("ResultWay")
              // .def(luabind::constructor<>())
-             .def_readwrite("forward_speed", &ExtractionWay::forward_speed)
-             .def_readwrite("backward_speed", &ExtractionWay::backward_speed)
+             .def_readwrite("city_forward_speed", &ExtractionWay::city_forward_speed)
+             .def_readwrite("city_backward_speed", &ExtractionWay::city_backward_speed)
+             .def_readwrite("country_forward_speed", &ExtractionWay::country_forward_speed)
+             .def_readwrite("country_backward_speed", &ExtractionWay::country_backward_speed)
              .property("name", &ExtractionWay::GetName, &ExtractionWay::SetName)
              .property("ref", &ExtractionWay::GetRef, &ExtractionWay::SetRef)
              .property("pronunciation",

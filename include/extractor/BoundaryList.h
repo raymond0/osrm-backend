@@ -21,7 +21,7 @@ class BoundaryList
 public:
     void ReadDensityTree( std::ifstream &densityIn );
     //std::shared_ptr< Boundary > SmallestBoundaryForFixedPointCoordinate( const FixedPointCoordinate &fpc ) const;
-    bool FixedPointCoordinateIsInTown( const FixedPointCoordinate &fpc ) const;
+    bool FixedPointCoordinateIsInTown( const osrm::util::Coordinate &fpc ) const;
     
 private:
     std::vector< std::shared_ptr< Boundary > > countries;
