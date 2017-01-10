@@ -39,22 +39,6 @@ namespace osrm
 
 namespace engine
 {
-<<<<<<< HEAD:extractor/extractor_options.hpp
-    ExtractorConfig() noexcept : requested_num_threads(0) {}
-    boost::filesystem::path config_file_path;
-    boost::filesystem::path input_path;
-    boost::filesystem::path profile_path;
-
-    boost::filesystem::path boundary_density_file_name;
-
-    std::string output_file_name;
-    std::string restriction_file_name;
-    std::string timestamp_file_name;
-
-    unsigned requested_num_threads;
-};
-=======
->>>>>>> master:include/engine/engine_config.hpp
 
 /**
  * Configures an OSRM instance.
