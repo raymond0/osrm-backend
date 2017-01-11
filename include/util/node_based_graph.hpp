@@ -6,7 +6,9 @@
 #include "util/dynamic_graph.hpp"
 #include "util/graph_utils.hpp"
 
+#ifdef UR_PARALLEL_CODE
 #include <tbb/parallel_sort.h>
+#endif
 
 #include <memory>
 
@@ -67,6 +69,7 @@ struct NodeBasedEdgeData
 
 using NodeBasedDynamicGraph = DynamicGraph<NodeBasedEdgeData>;
 
+#ifdef UR_PARALLEL_CODE
 /// Factory method to create NodeBasedDynamicGraph from NodeBasedEdges
 /// Since DynamicGraph expects directed edges, we need to insert
 /// two edges for undirected edges.
@@ -96,6 +99,7 @@ NodeBasedDynamicGraphFromEdges(NodeID number_of_nodes,
 
     return graph;
 }
+#endif
 }
 }
 

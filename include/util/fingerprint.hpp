@@ -13,13 +13,13 @@ namespace util
 class FingerPrint
 {
   public:
-    static FingerPrint GetValid();
-    const boost::uuids::uuid &GetFingerPrint() const;
-    bool IsMagicNumberOK(const FingerPrint &other) const;
-    bool TestGraphUtil(const FingerPrint &other) const;
-    bool TestContractor(const FingerPrint &other) const;
-    bool TestRTree(const FingerPrint &other) const;
-    bool TestQueryObjects(const FingerPrint &other) const;
+    static FingerPrint GetValid() { FingerPrint fp; return fp; }
+    const boost::uuids::uuid &GetFingerPrint() const { return named_uuid; }
+    bool IsMagicNumberOK(const FingerPrint &other) const { return true; }
+    bool TestGraphUtil(const FingerPrint &other) const { return true; }
+    bool TestContractor(const FingerPrint &other) const { return true; }
+    bool TestRTree(const FingerPrint &other) const { return true; }
+    bool TestQueryObjects(const FingerPrint &other) const { return true; }
 
   private:
     unsigned magic_number;

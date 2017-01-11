@@ -11,7 +11,9 @@
 
 #include <bitset>
 #include <fstream>
+#ifdef UR_PARALLEL_CODE
 #include <stxxl/vector>
+#endif
 #include <vector>
 
 #include "storage/io.hpp"
@@ -84,6 +86,7 @@ bool serializeVectorIntoAdjacencyArray(const std::string &filename,
     return true;
 }
 
+#ifdef UR_PARALLEL_CODE
 template <typename simple_type, std::size_t WRITE_BLOCK_BUFFER_SIZE = 1024>
 bool serializeVector(std::ofstream &out_stream, const stxxl::vector<simple_type> &data)
 {
@@ -112,6 +115,7 @@ bool serializeVector(std::ofstream &out_stream, const stxxl::vector<simple_type>
 
     return static_cast<bool>(out_stream);
 }
+#endif
 
 template <typename simple_type>
 void deserializeAdjacencyArray(const std::string &filename,

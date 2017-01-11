@@ -21,8 +21,10 @@
 #include <boost/format.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 
+#ifdef UR_PARALLEL_CODE
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_sort.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -165,6 +167,9 @@ class StaticRTree
 
     template <typename CoordinateT>
     // Construct a packed Hilbert-R-Tree with Kamel-Faloutsos algorithm [1]
+
+#ifdef UR_PARALLEL_CODE
+
     explicit StaticRTree(const std::vector<EdgeDataT> &input_data_vector,
                          const std::string &tree_node_filename,
                          const std::string &leaf_node_filename,
@@ -340,6 +345,9 @@ class StaticRTree
 
         MapLeafNodesFile(leaf_node_filename);
     }
+    
+#endif // UR_PARALLEL_CODE
+
 
     explicit StaticRTree(const boost::filesystem::path &node_file,
                          const boost::filesystem::path &leaf_file,
