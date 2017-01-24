@@ -16,6 +16,7 @@ class FingerPrint
     static FingerPrint GetValid() { FingerPrint fp; return fp; }
     const boost::uuids::uuid &GetFingerPrint() const { return named_uuid; }
     bool IsMagicNumberOK(const FingerPrint &other) const { return true; }
+    bool IsMagicNumberOK() const { return 1297240911 == magic_number; }
     bool TestGraphUtil(const FingerPrint &other) const { return true; }
     bool TestContractor(const FingerPrint &other) const { return true; }
     bool TestRTree(const FingerPrint &other) const { return true; }

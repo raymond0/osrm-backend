@@ -31,7 +31,7 @@ namespace api
 class TableAPI final : public BaseAPI
 {
   public:
-    TableAPI(const datafacade::BaseDataFacade &facade_, const TableParameters &parameters_)
+    TableAPI(datafacade::BaseDataFacade &facade_, const TableParameters &parameters_)
         : BaseAPI(facade_, parameters_), parameters(parameters_)
     {
     }

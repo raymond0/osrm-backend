@@ -1,3 +1,4 @@
+#include "engine/urt_config.hpp"
 #include "engine/engine.hpp"
 #include "engine/api/route_parameters.hpp"
 #include "engine/engine_config.hpp"
@@ -5,6 +6,7 @@
 
 #include "engine/datafacade/process_memory_datafacade.hpp"
 #include "engine/datafacade/shared_memory_datafacade.hpp"
+#include "engine/datafacade/urt_datafacade.hpp"
 
 #include "storage/shared_barriers.hpp"
 #include "util/log.hpp"
@@ -78,12 +80,17 @@ Engine::Engine(const EngineConfig &config)
     }
     else
     {
+#ifdef USE_URT_OSRM
+        immutable_data_facade =
+            std::make_shared<datafacade::UrtDataFacade>(config.storage_config);
+#else
         if (!config.storage_config.IsValid())
         {
             throw util::exception("Invalid file paths given!" + SOURCE_REF);
         }
         immutable_data_facade =
             std::make_shared<datafacade::ProcessMemoryDataFacade>(config.storage_config);
+#endif
     }
 }
 

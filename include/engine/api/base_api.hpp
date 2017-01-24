@@ -22,7 +22,7 @@ namespace api
 class BaseAPI
 {
   public:
-    BaseAPI(const datafacade::BaseDataFacade &facade_, const BaseParameters &parameters_)
+    BaseAPI(datafacade::BaseDataFacade &facade_, const BaseParameters &parameters_)
         : facade(facade_), parameters(parameters_)
     {
     }
@@ -53,7 +53,7 @@ class BaseAPI
                                   Hint{phantom, facade.GetCheckSum()});
     }
 
-    const datafacade::BaseDataFacade &facade;
+    datafacade::BaseDataFacade &facade;
     const BaseParameters &parameters;
 };
 

@@ -250,7 +250,7 @@ class ShortestPathRouting final
         }
     }
 
-    void UnpackLegs(const DataFacadeT &facade,
+    void UnpackLegs(DataFacadeT &facade,
                     const std::vector<PhantomNodes> &phantom_nodes_vector,
                     const std::vector<NodeID> &total_packed_path,
                     const std::vector<std::size_t> &packed_leg_begin,
@@ -281,7 +281,7 @@ class ShortestPathRouting final
         }
     }
 
-    void operator()(const DataFacadeT &facade,
+    void operator()(DataFacadeT &facade,
                     const std::vector<PhantomNodes> &phantom_nodes_vector,
                     const boost::optional<bool> continue_straight_at_waypoint,
                     InternalRouteResult &raw_route_data) const

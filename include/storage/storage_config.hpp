@@ -67,6 +67,11 @@ struct StorageConfig final
     boost::filesystem::path intersection_class_path;
     boost::filesystem::path turn_lane_data_path;
     boost::filesystem::path turn_lane_description_path;
+    
+    std::vector<std::string> ur_hsgr_paths;
+    std::vector<std::string> ur_geometry_paths;
+    std::vector<std::string> ur_shortnodes_paths;
+
 };
 }
 }

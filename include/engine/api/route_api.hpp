@@ -1,6 +1,7 @@
 #ifndef ENGINE_API_ROUTE_HPP
 #define ENGINE_API_ROUTE_HPP
 
+#include "engine/urt_config.hpp"
 #include "engine/api/base_api.hpp"
 #include "engine/api/json_factory.hpp"
 #include "engine/api/route_parameters.hpp"
@@ -33,12 +34,12 @@ namespace api
 class RouteAPI : public BaseAPI
 {
   public:
-    RouteAPI(const datafacade::BaseDataFacade &facade_, const RouteParameters &parameters_)
+    RouteAPI(datafacade::BaseDataFacade &facade_, const RouteParameters &parameters_)
         : BaseAPI(facade_, parameters_), parameters(parameters_)
     {
     }
 
-    void MakeResponse(const InternalRouteResult &raw_route, util::json::Object &response) const
+    void MakeResponse(InternalRouteResult &raw_route, util::json::Object &response)
     {
         auto number_of_routes = raw_route.has_alternative() ? 2UL : 1UL;
         util::json::Array routes;
@@ -56,7 +57,9 @@ class RouteAPI : public BaseAPI
                                          raw_route.alt_source_traversed_in_reverse,
                                          raw_route.alt_target_traversed_in_reverse);
         }
+#ifndef USE_URT_OSRM
         response.values["waypoints"] = BaseAPI::MakeWaypoints(raw_route.segment_end_coordinates);
+#endif
         response.values["routes"] = std::move(routes);
         response.values["code"] = "Ok";
     }
@@ -83,7 +86,7 @@ class RouteAPI : public BaseAPI
     util::json::Object MakeRoute(const std::vector<PhantomNodes> &segment_end_coordinates,
                                  const std::vector<std::vector<PathData>> &unpacked_path_segments,
                                  const std::vector<bool> &source_traversed_in_reverse,
-                                 const std::vector<bool> &target_traversed_in_reverse) const
+                                 const std::vector<bool> &target_traversed_in_reverse)
     {
         std::vector<guidance::RouteLeg> legs;
         std::vector<guidance::LegGeometry> leg_geometries;

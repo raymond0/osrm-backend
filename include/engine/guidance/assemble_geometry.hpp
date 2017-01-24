@@ -3,6 +3,7 @@
 
 #include "extractor/guidance/turn_instruction.hpp"
 #include "extractor/travel_mode.hpp"
+#include "engine/urt_config.hpp"
 #include "engine/datafacade/datafacade_base.hpp"
 #include "engine/guidance/leg_geometry.hpp"
 #include "engine/guidance/route_step.hpp"
@@ -31,7 +32,7 @@ namespace guidance
 //             |---| segment 1
 //                 |---| segment 2
 //                     |---| segment 3
-inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
+inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
                                     const std::vector<PathData> &leg_data,
                                     const PhantomNode &source_node,
                                     const PhantomNode &target_node,
@@ -89,10 +90,12 @@ inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
     const std::vector<DatasourceID> forward_datasources =
         facade.GetUncompressedForwardDatasources(target_node.packed_geometry_id);
 
+#ifndef USE_URT_OSRM
     geometry.annotations.emplace_back(
         LegGeometry::Annotation{current_distance,
                                 target_node.forward_weight / 10.,
                                 forward_datasources[target_node.fwd_segment_position]});
+#endif
     geometry.segment_offsets.push_back(geometry.locations.size());
     geometry.locations.push_back(target_node.location);
 
@@ -110,8 +113,9 @@ inline LegGeometry assembleGeometry(const datafacade::BaseDataFacade &facade,
 
     BOOST_ASSERT(geometry.segment_distances.size() == geometry.segment_offsets.size() - 1);
     BOOST_ASSERT(geometry.locations.size() > geometry.segment_distances.size());
+#ifndef USE_URT_OSRM
     BOOST_ASSERT(geometry.annotations.size() == geometry.locations.size() - 1);
-
+#endif
     return geometry;
 }
 }

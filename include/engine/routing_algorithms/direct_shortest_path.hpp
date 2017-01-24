@@ -39,7 +39,7 @@ class DirectShortestPathRouting final
 
     ~DirectShortestPathRouting() {}
 
-    void operator()(const DataFacadeT &facade,
+    void operator()(DataFacadeT &facade,
                     const std::vector<PhantomNodes> &phantom_nodes_vector,
                     InternalRouteResult &raw_route_data) const
     {

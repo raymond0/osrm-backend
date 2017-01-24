@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef PHANTOM_NODES_H
 #define PHANTOM_NODES_H
 
+#include "engine/urt_config.hpp"
 #include "extractor/travel_mode.hpp"
 #include "util/typedefs.hpp"
 
@@ -110,7 +111,11 @@ struct PhantomNode
         return queried_coordinate == input_location && IsValid(number_of_nodes);
     }
 
+#ifdef USE_URT_OSRM
+    bool IsValid() const { return location.IsValid(); }
+#else
     bool IsValid() const { return location.IsValid() && (name_id != INVALID_NAMEID); }
+#endif
 
     bool operator==(const PhantomNode &other) const { return location == other.location; }
 

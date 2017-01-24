@@ -27,6 +27,8 @@
 #include <utility>
 #include <vector>
 
+#include "urt_datatypes.hpp"
+
 namespace osrm
 {
 namespace engine
@@ -60,6 +62,9 @@ class BaseDataFacade
     virtual EdgeID EndEdges(const NodeID n) const = 0;
 
     virtual EdgeRange GetAdjacentEdgeRange(const NodeID node) const = 0;
+    
+    // URT Addition
+    virtual void GetAdjacentEdges( const NodeID node, EdgeArray &edges ) const {}
 
     // searches for a specific edge
     virtual EdgeID FindEdge(const NodeID from, const NodeID to) const = 0;
@@ -72,6 +77,10 @@ class BaseDataFacade
     virtual EdgeID FindSmallestEdge(const NodeID from,
                                     const NodeID to,
                                     const std::function<bool(EdgeData)> filter) const = 0;
+    
+    // 2 URT Additions
+    virtual bool FindSmallestForwardEdge(const NodeID from, const NodeID to, EdgeArrayEntryApp &smallest_edge) { BOOST_ASSERT( false ); }
+    virtual bool FindSmallestBackwardEdge(const NodeID from, const NodeID to, EdgeArrayEntryApp &smallest_edge) { BOOST_ASSERT( false ); }
 
     // node and edge information access
     virtual util::Coordinate GetCoordinateOfNode(const unsigned id) const = 0;
@@ -79,9 +88,8 @@ class BaseDataFacade
 
     virtual GeometryID GetGeometryIndexForEdgeID(const unsigned id) const = 0;
 
-    virtual std::vector<NodeID> GetUncompressedForwardGeometry(const EdgeID id) const = 0;
-
-    virtual std::vector<NodeID> GetUncompressedReverseGeometry(const EdgeID id) const = 0;
+    virtual std::vector<NodeID> GetUncompressedForwardGeometry(const EdgeID id) = 0;
+    virtual std::vector<NodeID> GetUncompressedReverseGeometry(const EdgeID id) = 0;
 
     // Gets the weight values for each segment in an uncompressed geometry.
     // Should always be 1 shorter than GetUncompressedGeometry

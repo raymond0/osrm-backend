@@ -72,7 +72,7 @@ class MapMatching final : public BasicRoutingInterface<DataFacadeT, MapMatching<
     }
 
     SubMatchingList
-    operator()(const DataFacadeT &facade,
+    operator()(DataFacadeT &facade,
                const CandidateLists &candidates_list,
                const std::vector<util::Coordinate> &trace_coordinates,
                const std::vector<unsigned> &trace_timestamps,

@@ -1,3 +1,4 @@
+#include "engine/urt_config.hpp"
 #include "engine/plugins/viaroute.hpp"
 #include "engine/api/route_api.hpp"
 #include "engine/datafacade/datafacade_base.hpp"
@@ -33,6 +34,7 @@ Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataF
 {
     BOOST_ASSERT(route_parameters.IsValid());
 
+#ifndef USE_URT_OSRM
     if (max_locations_viaroute > 0 &&
         (static_cast<int>(route_parameters.coordinates.size()) > max_locations_viaroute))
     {
@@ -83,6 +85,16 @@ Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataF
         }
     };
     util::for_each_pair(snapped_phantoms, build_phantom_pairs);
+    
+#else // USE_URT_OSRM
+    
+    std::vector<PhantomNodePair> phantom_node_pairs;
+    phantom_node_pairs.emplace_back( PhantomNodePair( route_parameters.phantomInputNodes[0], route_parameters.phantomInputNodes[1] ) );
+    InternalRouteResult raw_route;
+    raw_route.segment_end_coordinates.push_back(PhantomNodes{route_parameters.phantomInputNodes[0], route_parameters.phantomInputNodes[1]});
+    
+#endif
+
 
     if (1 == raw_route.segment_end_coordinates.size())
     {
@@ -112,6 +124,7 @@ Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataF
     }
     else
     {
+#ifndef USE_URT_OSRM
         auto first_component_id = snapped_phantoms.front().component.id;
         auto not_in_same_component = std::any_of(snapped_phantoms.begin(),
                                                  snapped_phantoms.end(),
@@ -124,6 +137,7 @@ Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataF
             return Error("NoRoute", "Impossible route between points", json_result);
         }
         else
+#endif
         {
             return Error("NoRoute", "No route found between points", json_result);
         }

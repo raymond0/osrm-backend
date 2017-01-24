@@ -474,7 +474,7 @@ class ContiguousInternalMemoryDataFacadeBase : public BaseDataFacade
         return m_osmnodeid_list.at(id);
     }
 
-    virtual std::vector<NodeID> GetUncompressedForwardGeometry(const EdgeID id) const override final
+    virtual std::vector<NodeID> GetUncompressedForwardGeometry(const EdgeID id) override final
     {
         /*
          * NodeID's for geometries are stored in one place for
@@ -499,7 +499,7 @@ class ContiguousInternalMemoryDataFacadeBase : public BaseDataFacade
         return result_nodes;
     }
 
-    virtual std::vector<NodeID> GetUncompressedReverseGeometry(const EdgeID id) const override final
+    virtual std::vector<NodeID> GetUncompressedReverseGeometry(const EdgeID id) override final
     {
         /*
          * NodeID's for geometries are stored in one place for

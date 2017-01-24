@@ -20,7 +20,7 @@ namespace api
 class TripAPI final : public RouteAPI
 {
   public:
-    TripAPI(const datafacade::BaseDataFacade &facade_, const TripParameters &parameters_)
+    TripAPI(datafacade::BaseDataFacade &facade_, const TripParameters &parameters_)
         : RouteAPI(facade_, parameters_), parameters(parameters_)
     {
     }
@@ -28,7 +28,7 @@ class TripAPI final : public RouteAPI
     void MakeResponse(const std::vector<std::vector<NodeID>> &sub_trips,
                       const std::vector<InternalRouteResult> &sub_routes,
                       const std::vector<PhantomNode> &phantoms,
-                      util::json::Object &response) const
+                      util::json::Object &response)
     {
         auto number_of_routes = sub_trips.size();
         util::json::Array routes;

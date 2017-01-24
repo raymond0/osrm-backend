@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef ENGINE_API_ROUTE_PARAMETERS_HPP
 #define ENGINE_API_ROUTE_PARAMETERS_HPP
 
+#include "engine/urt_config.hpp"
 #include "engine/api/base_parameters.hpp"
 
 #include <vector>
@@ -105,8 +106,14 @@ struct RouteParameters : public BaseParameters
     GeometriesType geometries = GeometriesType::Polyline;
     OverviewType overview = OverviewType::Simplified;
     boost::optional<bool> continue_straight;
+    std::vector<PhantomNode> phantomInputNodes;
 
+#ifdef USE_URT_OSRM
+    bool IsValid() const { return true ; }
+#else
     bool IsValid() const { return coordinates.size() >= 2 && BaseParameters::IsValid(); }
+#endif
+
 };
 }
 }

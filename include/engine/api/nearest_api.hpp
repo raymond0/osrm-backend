@@ -21,7 +21,7 @@ namespace api
 class NearestAPI final : public BaseAPI
 {
   public:
-    NearestAPI(const datafacade::BaseDataFacade &facade_, const NearestParameters &parameters_)
+    NearestAPI(datafacade::BaseDataFacade &facade_, const NearestParameters &parameters_)
         : BaseAPI(facade_, parameters_), parameters(parameters_)
     {
     }

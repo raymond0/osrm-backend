@@ -34,7 +34,7 @@ class TripPlugin final : public BasePlugin
     mutable routing_algorithms::ManyToManyRouting<datafacade::BaseDataFacade> duration_table;
     const int max_locations_trip;
 
-    InternalRouteResult ComputeRoute(const datafacade::BaseDataFacade &facade,
+    InternalRouteResult ComputeRoute(datafacade::BaseDataFacade &facade,
                                      const std::vector<PhantomNode> &phantom_node_list,
                                      const std::vector<NodeID> &trip) const;
 

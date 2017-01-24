@@ -60,7 +60,7 @@ class AlternativeRouting final
 
     virtual ~AlternativeRouting() {}
 
-    void operator()(const DataFacadeT &facade,
+    void operator()(DataFacadeT &facade,
                     const PhantomNodes &phantom_node_pair,
                     InternalRouteResult &raw_route_data)
     {
@@ -407,7 +407,7 @@ class AlternativeRouting final
     // compute and unpack <s,..,v> and <v,..,t> by exploring search spaces
     // from v and intersecting against queues. only half-searches have to be
     // done at this stage
-    void ComputeLengthAndSharingOfViaPath(const DataFacadeT &facade,
+    void ComputeLengthAndSharingOfViaPath(DataFacadeT &facade,
                                           const NodeID via_node,
                                           int *real_length_of_via_path,
                                           int *sharing_of_via_path,

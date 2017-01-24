@@ -21,14 +21,14 @@ namespace api
 class MatchAPI final : public RouteAPI
 {
   public:
-    MatchAPI(const datafacade::BaseDataFacade &facade_, const MatchParameters &parameters_)
+    MatchAPI(datafacade::BaseDataFacade &facade_, const MatchParameters &parameters_)
         : RouteAPI(facade_, parameters_), parameters(parameters_)
     {
     }
 
     void MakeResponse(const std::vector<map_matching::SubMatching> &sub_matchings,
                       const std::vector<InternalRouteResult> &sub_routes,
-                      util::json::Object &response) const
+                      util::json::Object &response)
     {
         auto number_of_routes = sub_matchings.size();
         util::json::Array routes;
