@@ -17,6 +17,7 @@
 #include "engine/plugins/tile.hpp"
 #include "engine/plugins/trip.hpp"
 #include "engine/plugins/viaroute.hpp"
+#include "engine/plugins/phantomlookup.hpp"
 #include "engine/status.hpp"
 #include "util/exception.hpp"
 #include "util/exception_utils.hpp"
@@ -43,6 +44,7 @@ class Engine final
     Engine &operator=(const Engine &) = delete;
 
     Status Route(const api::RouteParameters &parameters, util::json::Object &result) const;
+    Status GetPhantomNode(const osrm::util::FloatCoordinate &coordinate, osrm::engine::PhantomNode &result) const;
     Status Table(const api::TableParameters &parameters, util::json::Object &result) const;
     Status Nearest(const api::NearestParameters &parameters, util::json::Object &result) const;
     Status Trip(const api::TripParameters &parameters, util::json::Object &result) const;
@@ -59,6 +61,7 @@ class Engine final
     const plugins::TripPlugin trip_plugin;
     const plugins::MatchPlugin match_plugin;
     const plugins::TilePlugin tile_plugin;
+    const plugins::PhantomLoopupPlugin phantom_lookup_plugin;
 
     // note in case of shared memory this will be empty, since the watchdog
     // will provide us with the up-to-date facade

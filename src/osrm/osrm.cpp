@@ -27,6 +27,11 @@ engine::Status OSRM::Route(const engine::api::RouteParameters &params,
 {
     return engine_->Route(params, result);
 }
+    
+engine::Status OSRM::GetPhantomNode(const osrm::util::FloatCoordinate &coordinate, osrm::engine::PhantomNode &result) const
+{
+    return engine_->GetPhantomNode(coordinate, result);
+}
 
 engine::Status OSRM::Table(const engine::api::TableParameters &params, json::Object &result) const
 {

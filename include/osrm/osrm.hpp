@@ -34,6 +34,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 #include <string>
 
+#include "util/static_graph.hpp"
+#include "osrm/route_parameters.hpp"
+#include "osrm/coordinate.hpp"
+
 namespace osrm
 {
 namespace json = util::json;
@@ -84,6 +88,8 @@ class OSRM final
      * \see Status, RouteParameters and json::Object
      */
     Status Route(const RouteParameters &parameters, json::Object &result) const;
+
+    Status GetPhantomNode(const osrm::util::FloatCoordinate &coordinate, osrm::engine::PhantomNode &result) const;
 
     /**
      * Distance tables for coordinates.

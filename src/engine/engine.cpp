@@ -60,7 +60,8 @@ Engine::Engine(const EngineConfig &config)
       nearest_plugin(config.max_results_nearest),        //
       trip_plugin(config.max_locations_trip),            //
       match_plugin(config.max_locations_map_matching),   //
-      tile_plugin()                                      //
+      tile_plugin(),                                     //
+      phantom_lookup_plugin(config.max_locations_viaroute)
 
 {
     if (config.use_shared_memory)
@@ -90,6 +91,11 @@ Engine::Engine(const EngineConfig &config)
 Status Engine::Route(const api::RouteParameters &params, util::json::Object &result) const
 {
     return RunQuery(watchdog, immutable_data_facade, params, route_plugin, result);
+}
+    
+Status Engine::GetPhantomNode(const osrm::util::FloatCoordinate &coordinate, osrm::engine::PhantomNode &result) const
+{
+    return phantom_lookup_plugin.HandleRequest(immutable_data_facade, coordinate, result);
 }
 
 Status Engine::Table(const api::TableParameters &params, util::json::Object &result) const
