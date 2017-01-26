@@ -249,7 +249,8 @@ void LuaScriptingEnvironment::InitContext(LuaScriptingContext &context)
              .def_readonly("source_coordinate", &InternalExtractorEdge::source_coordinate)
              .def_readwrite("weight_data", &InternalExtractorEdge::weight_data),
          luabind::class_<InternalExtractorEdge::WeightData>("WeightData")
-             .def_readwrite("speed", &InternalExtractorEdge::WeightData::speed),
+             .def_readwrite("city_speed", &InternalExtractorEdge::WeightData::city_speed)
+             .def_readwrite("country_speed", &InternalExtractorEdge::WeightData::country_speed),
          luabind::class_<ExternalMemoryNode>("EdgeTarget")
              .property("lon", &lonToDouble<ExternalMemoryNode>)
              .property("lat", &latToDouble<ExternalMemoryNode>),

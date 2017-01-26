@@ -33,8 +33,9 @@ struct InternalExtractorEdge
 
         union {
             double duration;
-            double speed;
+            double city_speed;
         };
+        double country_speed;
         WeightType type;
     };
 

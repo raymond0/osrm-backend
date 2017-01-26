@@ -37,7 +37,7 @@ class ExtractionContainers
     void FlushVectors();
     void PrepareNodes();
     void PrepareRestrictions();
-    void PrepareEdges(ScriptingEnvironment &scripting_environment);
+    void PrepareEdges(ScriptingEnvironment &scripting_environment, BoundaryList &boundaryList);
 
     void WriteNodes(std::ofstream &file_out_stream) const;
     void WriteRestrictions(const std::string &restrictions_file_name) const;

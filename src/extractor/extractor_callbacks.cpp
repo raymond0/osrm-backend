@@ -121,13 +121,15 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
         if (parsed_way.city_forward_speed > 0 &&
             parsed_way.forward_travel_mode != TRAVEL_MODE_INACCESSIBLE)
         {
-            forward_weight_data.speed = parsed_way.city_forward_speed;
+            forward_weight_data.city_speed = parsed_way.city_forward_speed;
+            forward_weight_data.country_speed = parsed_way.country_forward_speed;
             forward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;
         }
         if (parsed_way.city_backward_speed > 0 &&
             parsed_way.backward_travel_mode != TRAVEL_MODE_INACCESSIBLE)
         {
-            backward_weight_data.speed = parsed_way.city_backward_speed;
+            backward_weight_data.city_speed = parsed_way.city_backward_speed;
+            backward_weight_data.country_speed = parsed_way.country_backward_speed;
             backward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;
         }
     }

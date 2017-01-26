@@ -165,7 +165,7 @@ void ExtractionContainers::PrepareData(ScriptingEnvironment &scripting_environme
 
     PrepareNodes();
     WriteNodes(file_out_stream);
-    PrepareEdges(scripting_environment);
+    PrepareEdges(scripting_environment, boundaryList);
     WriteEdges(file_out_stream);
 
     PrepareRestrictions();
@@ -299,7 +299,68 @@ void ExtractionContainers::PrepareNodes()
     }
 }
 
-void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environment)
+
+static tbb::atomic<size_t> country = 0, city = 0, count = 0;
+size_t edgesQueued = 0;
+    
+#define EDGE_MULTI_THREAD
+#ifdef EDGE_MULTI_THREAD
+    
+class ProcessEdgeClassData
+{
+public:
+    ProcessEdgeClassData( BoundaryList &bl, util::Coordinate &c, bool &itr ) : boundaryList(bl), coord(c), inTownResult(itr) {}
+    
+    BoundaryList &boundaryList;
+    util::Coordinate coord;
+    bool &inTownResult;
+};
+    
+    
+typedef std::shared_ptr<ProcessEdgeClassData> ProcessEdgeClassDataPtr;
+    
+    
+class ProcessEdgeClassDataClass
+{
+public:
+    ProcessEdgeClassDataClass() { }
+    int operator()( ProcessEdgeClassDataPtr item )
+    {
+        bool result = item->boundaryList.FixedPointCoordinateIsInTown(item->coord);
+        
+        if ( result )
+        {
+            item->inTownResult = true;
+            city++;
+        }
+        else
+        {
+            country++;
+        }
+        
+        count++;
+        
+        if ( count % 100000 == 0 )
+        {
+            size_t countryTemp = country;
+            size_t cityTemp = city;
+            size_t countTemp = count;
+            size_t percent = (countTemp * 100) / edgesQueued;
+            std::cout << "Country: " << countryTemp << ", city: " << cityTemp <<
+            ", " << countTemp << "/" << edgesQueued << " = " << percent << "%\n";
+        }
+
+        return 0;
+    }
+};
+    
+#endif
+
+using namespace std;
+using namespace tbb;
+using namespace tbb::flow;
+
+void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environment, BoundaryList &boundaryList)
 {
     // Sort edges by start.
     {
@@ -386,12 +447,24 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
     {
         // Compute edge weights
         util::UnbufferedLog log;
-        log << "Computing edge weights    ... " << std::flush;
-        TIMER_START(compute_weights);
         auto node_iterator = all_nodes_list.begin();
         auto edge_iterator = all_edges_list.begin();
+        const auto all_edges_list_begin_ = all_edges_list.begin();
         const auto all_edges_list_end_ = all_edges_list.end();
         const auto all_nodes_list_end_ = all_nodes_list.end();
+        
+        log << "Computing edge weights for " << all_edges_list.size() << " edges  ... " << std::flush;
+        TIMER_START(compute_weights);
+        
+#ifdef EDGE_MULTI_THREAD
+        graph g;
+        broadcast_node<ProcessEdgeClassDataPtr> input(g);
+        function_node<ProcessEdgeClassDataPtr, int> processor( g, unlimited, ProcessEdgeClassDataClass());
+        make_edge( input, processor );
+#endif
+        
+        concurrent_vector<bool> edgeStartsInTown;
+        edgeStartsInTown.resize(all_edges_list.size(), false);
 
         while (edge_iterator != all_edges_list_end_ && node_iterator != all_nodes_list_end_)
         {
@@ -417,7 +490,71 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
             }
 
             BOOST_ASSERT(edge_iterator->result.osm_target_id == node_iterator->node_id);
-            BOOST_ASSERT(edge_iterator->weight_data.speed >= 0);
+            BOOST_ASSERT(edge_iterator->weight_data.city_speed >= 0);
+            BOOST_ASSERT(edge_iterator->weight_data.country_speed >= 0);
+            BOOST_ASSERT(edge_iterator->source_coordinate.lat !=
+                         util::FixedLatitude{std::numeric_limits<std::int32_t>::min()});
+            BOOST_ASSERT(edge_iterator->source_coordinate.lon !=
+                         util::FixedLongitude{std::numeric_limits<std::int32_t>::min()});
+            
+            auto edgeIndex = edge_iterator - all_edges_list_begin_;
+            
+#ifdef EDGE_MULTI_THREAD
+            ProcessEdgeClassDataPtr dataPtr = std::make_shared<ProcessEdgeClassData>(boundaryList,
+                                                                                     edge_iterator->source_coordinate,
+                                                                                     edgeStartsInTown[edgeIndex]);
+            input.try_put( dataPtr );
+            edgesQueued++;
+#else
+            ProcessEdgeItem(distance, boundaryList,
+                            external_to_internal_node_id_map,
+                            *edge_iterator, *node_iterator );
+#endif
+
+            ++edge_iterator;
+        }
+        
+#ifdef EDGE_MULTI_THREAD
+        std::cout << "Finished queueing " << edgesQueued << " edges\n";
+        g.wait_for_all();
+#endif
+        
+        node_iterator = all_nodes_list.begin();
+        edge_iterator = all_edges_list.begin();
+        
+        //
+        // Second pass to swap the nodes
+        //
+        while (edge_iterator != all_edges_list_end_ && node_iterator != all_nodes_list_end_)
+        {
+            auto edgeIndex = edge_iterator - all_edges_list_begin_;
+
+            // skip all invalid edges
+            if (edge_iterator->result.source == SPECIAL_NODEID)
+            {
+                BOOST_ASSERT(!edgeStartsInTown[edgeIndex]);
+                ++edge_iterator;
+                continue;
+            }
+            
+            if (edge_iterator->result.osm_target_id < node_iterator->node_id)
+            {
+                BOOST_ASSERT(!edgeStartsInTown[edgeIndex]);
+                util::Log(logDEBUG) << "Found invalid node reference "
+                << static_cast<uint64_t>(edge_iterator->result.osm_target_id);
+                edge_iterator->result.target = SPECIAL_NODEID;
+                ++edge_iterator;
+                continue;
+            }
+            if (edge_iterator->result.osm_target_id > node_iterator->node_id)
+            {
+                ++node_iterator;
+                continue;
+            }
+            
+            BOOST_ASSERT(edge_iterator->result.osm_target_id == node_iterator->node_id);
+            BOOST_ASSERT(edge_iterator->weight_data.city_speed >= 0);
+            BOOST_ASSERT(edge_iterator->weight_data.country_speed >= 0);
             BOOST_ASSERT(edge_iterator->source_coordinate.lat !=
                          util::FixedLatitude{std::numeric_limits<std::int32_t>::min()});
             BOOST_ASSERT(edge_iterator->source_coordinate.lon !=
@@ -431,8 +568,10 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
                                                  *node_iterator,
                                                  distance,
                                                  edge_iterator->weight_data);
+            
+            bool inTown = edgeStartsInTown[edgeIndex];
 
-            const double weight = [distance, edge_iterator, node_iterator](
+            const double weight = [distance, edge_iterator, node_iterator, inTown](
                 const InternalExtractorEdge::WeightData &data) {
                 switch (data.type)
                 {
@@ -441,7 +580,14 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
                     return data.duration * 10.;
                     break;
                 case InternalExtractorEdge::WeightType::SPEED:
-                    return (distance * 10.) / (data.speed / 3.6);
+                    if ( inTown )
+                    {
+                        return (distance * 10.) / (data.city_speed / 3.6);
+                    }
+                    else
+                    {
+                        return (distance * 10.) / (data.country_speed / 3.6);
+                    }
                     break;
                 case InternalExtractorEdge::WeightType::INVALID:
                     std::stringstream coordstring;
