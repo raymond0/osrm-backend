@@ -43,6 +43,7 @@ class exception final : public std::exception
     explicit exception(const char *message) : message(message) {}
     explicit exception(std::string message) : message(std::move(message)) {}
     const char *what() const noexcept override { return message.c_str(); }
+    std::string whatStr() const noexcept { return message; }
 
   private:
     // This function exists to 'anchor' the class, and stop the compiler from

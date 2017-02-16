@@ -88,10 +88,13 @@ Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataF
     
 #else // USE_URT_OSRM
     
-    std::vector<PhantomNodePair> phantom_node_pairs;
-    phantom_node_pairs.emplace_back( PhantomNodePair( route_parameters.phantomInputNodes[0], route_parameters.phantomInputNodes[1] ) );
     InternalRouteResult raw_route;
-    raw_route.segment_end_coordinates.push_back(PhantomNodes{route_parameters.phantomInputNodes[0], route_parameters.phantomInputNodes[1]});
+    
+    for( auto i = 0; i < route_parameters.phantomInputNodes.size() - 1; i++ )
+    {
+        raw_route.segment_end_coordinates.push_back(PhantomNodes{route_parameters.phantomInputNodes[i], route_parameters.phantomInputNodes[i+1]});
+    }
+    
     
 #endif
 
