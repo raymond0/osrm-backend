@@ -58,6 +58,9 @@ using NodeID = std::uint32_t;
 using EdgeID = std::uint32_t;
 using NameID = std::uint32_t;
 using EdgeWeight = std::int32_t;
+using TurnPenalty = std::int16_t; // turn penalty in 100ms units
+
+static const std::size_t INVALID_INDEX = std::numeric_limits<std::size_t>::max();
 
 using LaneID = std::uint8_t;
 static const LaneID INVALID_LANEID = std::numeric_limits<LaneID>::max();
@@ -83,6 +86,8 @@ static const NameID INVALID_NAMEID = std::numeric_limits<NameID>::max();
 static const NameID EMPTY_NAMEID = 0;
 static const unsigned INVALID_COMPONENTID = 0;
 static const EdgeWeight INVALID_EDGE_WEIGHT = std::numeric_limits<EdgeWeight>::max();
+static const EdgeWeight MAXIMAL_EDGE_DURATION = std::numeric_limits<EdgeWeight>::max();
+static const TurnPenalty INVALID_TURN_PENALTY = std::numeric_limits<TurnPenalty>::max();
 
 using DatasourceID = std::uint8_t;
 

@@ -5,6 +5,7 @@
 #include "util/exception_utils.hpp"
 #include "util/fingerprint.hpp"
 #include "util/log.hpp"
+#include "util/version.hpp"
 
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/seek.hpp>
@@ -60,6 +61,22 @@ class FileReader
         }
     }
 
+    std::size_t GetSize()
+    {
+        const boost::filesystem::ifstream::pos_type positon = input_stream.tellg();
+        input_stream.seekg(0, std::ios::end);
+        const boost::filesystem::ifstream::pos_type file_size = input_stream.tellg();
+
+        if (file_size == boost::filesystem::ifstream::pos_type(-1))
+        {
+            throw util::exception("File size for " + filepath.string() + " failed " + SOURCE_REF);
+        }
+
+        // restore the current position
+        input_stream.seekg(positon, std::ios::beg);
+        return file_size;
+    }
+
     /* Read count objects of type T into pointer dest */
     template <typename T> void ReadInto(T *dest, const std::size_t count)
     {
@@ -72,8 +89,9 @@ class FileReader
             return;
 
         const auto &result = input_stream.read(reinterpret_cast<char *>(dest), count * sizeof(T));
+        const std::size_t bytes_read = input_stream.gcount();
 
-        if (!result)
+        if (bytes_read != count * sizeof(T) && !result)
         {
             if (result.eof())
             {
@@ -117,12 +135,31 @@ class FileReader
 
     bool ReadAndCheckFingerprint()
     {
-        auto fingerprint = ReadOne<util::FingerPrint>();
-        const auto valid = util::FingerPrint::GetValid();
-        // compare the compilation state stored in the fingerprint
-        return valid.IsMagicNumberOK(fingerprint) && valid.TestContractor(fingerprint) &&
-               valid.TestGraphUtil(fingerprint) && valid.TestRTree(fingerprint) &&
-               valid.TestQueryObjects(fingerprint);
+        auto loaded_fingerprint = ReadOne<util::FingerPrint>();
+        const auto expected_fingerprint = util::FingerPrint::GetValid();
+
+        if (!loaded_fingerprint.IsValid())
+        {
+            util::Log(logERROR) << "Fingerprint magic number or checksum is invalid in "
+                                << filepath.string();
+            return false;
+        }
+
+        if (!expected_fingerprint.IsDataCompatible(loaded_fingerprint))
+        {
+            util::Log(logERROR) << filepath.string()
+                                << " is not compatible with this version of OSRM";
+
+            util::Log(logERROR) << "It was prepared with OSRM "
+                                << loaded_fingerprint.GetMajorVersion() << "."
+                                << loaded_fingerprint.GetMinorVersion() << "."
+                                << loaded_fingerprint.GetPatchVersion() << " but you are running "
+                                << OSRM_VERSION;
+            util::Log(logERROR) << "Data is only compatible between minor releases.";
+            return false;
+        }
+
+        return true;
     }
 
     std::size_t Size()
@@ -145,7 +182,7 @@ class FileReader
                 result.push_back(thisline);
             }
         }
-        catch (const std::ios_base::failure &e)
+        catch (const std::ios_base::failure &)
         {
             // EOF is OK here, everything else, re-throw
             if (!input_stream.eof())
@@ -203,7 +240,7 @@ class FileWriter
     }
 
     /* Write count objects of type T from pointer src to output stream */
-    template <typename T> bool WriteFrom(T *src, const std::size_t count)
+    template <typename T> void WriteFrom(const T *src, const std::size_t count)
     {
 #if not defined __GNUC__ or __GNUC__ > 4
         static_assert(std::is_trivially_copyable<T>::value,
@@ -211,32 +248,32 @@ class FileWriter
 #endif
 
         if (count == 0)
-            return true;
+            return;
 
-        const auto &result = output_stream.write(reinterpret_cast<char *>(src), count * sizeof(T));
+        const auto &result =
+            output_stream.write(reinterpret_cast<const char *>(src), count * sizeof(T));
+
         if (!result)
         {
             throw util::exception("Error writing to " + filepath.string());
         }
-
-        return static_cast<bool>(output_stream);
     }
 
-    template <typename T> bool WriteFrom(T &target) { return WriteFrom(&target, 1); }
+    template <typename T> void WriteFrom(const T &target) { WriteFrom(&target, 1); }
 
-    template <typename T> bool WriteOne(T tmp) { return WriteFrom(tmp); }
+    template <typename T> void WriteOne(const T tmp) { WriteFrom(tmp); }
 
-    bool WriteElementCount32(const std::uint32_t count) { return WriteOne<std::uint32_t>(count); }
-    bool WriteElementCount64(const std::uint64_t count) { return WriteOne<std::uint64_t>(count); }
+    void WriteElementCount32(const std::uint32_t count) { WriteOne<std::uint32_t>(count); }
+    void WriteElementCount64(const std::uint64_t count) { WriteOne<std::uint64_t>(count); }
 
-    template <typename T> bool SerializeVector(std::vector<T> &data)
+    template <typename T> void SerializeVector(const std::vector<T> &data)
     {
         const auto count = data.size();
         WriteElementCount64(count);
         return WriteFrom(data.data(), count);
     }
 
-    bool WriteFingerprint()
+    void WriteFingerprint()
     {
         const auto fingerprint = util::FingerPrint::GetValid();
         return WriteOne(fingerprint);

@@ -1,13 +1,18 @@
 #include "extractor/guidance/intersection_handler.hpp"
 #include "extractor/guidance/constants.hpp"
 
+#include "util/coordinate_calculation.hpp"
 #include "util/guidance/name_announcements.hpp"
 #include "util/log.hpp"
+
+#include "util/bearing.hpp"
+#include "util/coordinate_calculation.hpp"
 
 #include <algorithm>
 #include <cstddef>
 
 using EdgeData = osrm::util::NodeBasedDynamicGraph::EdgeData;
+using osrm::extractor::guidance::getTurnDirection;
 using osrm::util::angularDeviation;
 
 namespace osrm
@@ -37,6 +42,8 @@ IntersectionHandler::IntersectionHandler(const util::NodeBasedDynamicGraph &node
 {
 }
 
+// Inspects an intersection and a turn from via_edge onto road from the possible basic turn types
+// (OnRamp, Continue, Turn) find the suitable turn type
 TurnType::Enum IntersectionHandler::findBasicTurnType(const EdgeID via_edge,
                                                       const ConnectedRoad &road) const
 {
@@ -167,6 +174,14 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
         node_based_graph.GetEdgeData(left.eid).road_classification.IsLowPriorityRoadClass();
     const bool low_priority_right =
         node_based_graph.GetEdgeData(right.eid).road_classification.IsLowPriorityRoadClass();
+    const auto same_mode_left =
+        in_data.travel_mode == node_based_graph.GetEdgeData(left.eid).travel_mode;
+    const auto same_mode_right =
+        in_data.travel_mode == node_based_graph.GetEdgeData(right.eid).travel_mode;
+    const auto suppressed_left_type =
+        same_mode_left ? TurnType::Suppressed : TurnType::Notification;
+    const auto suppressed_right_type =
+        same_mode_right ? TurnType::Suppressed : TurnType::Notification;
     if ((angularDeviation(left.angle, STRAIGHT_ANGLE) < MAXIMAL_ALLOWED_NO_TURN_DEVIATION &&
          angularDeviation(right.angle, STRAIGHT_ANGLE) > FUZZY_ANGLE_DIFFERENCE))
     {
@@ -198,7 +213,7 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
         }
         else
         {
-            left.instruction = {TurnType::Suppressed, DirectionModifier::Straight};
+            left.instruction = {suppressed_left_type, DirectionModifier::Straight};
             right.instruction = {findBasicTurnType(via_edge, right),
                                  DirectionModifier::SlightRight};
         }
@@ -237,7 +252,7 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
             }
             else
             {
-                right.instruction = {TurnType::Suppressed, DirectionModifier::Straight};
+                right.instruction = {suppressed_right_type, DirectionModifier::Straight};
                 left.instruction = {findBasicTurnType(via_edge, left),
                                     DirectionModifier::SlightLeft};
             }
@@ -245,24 +260,32 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
     }
     // left side of fork
     if (low_priority_right && !low_priority_left)
-        left.instruction = {TurnType::Suppressed, DirectionModifier::SlightLeft};
+        left.instruction = {suppressed_left_type, DirectionModifier::SlightLeft};
     else
     {
         if (low_priority_left && !low_priority_right)
+        {
             left.instruction = {TurnType::Turn, DirectionModifier::SlightLeft};
+        }
         else
+        {
             left.instruction = {TurnType::Fork, DirectionModifier::SlightLeft};
+        }
     }
 
     // right side of fork
     if (low_priority_left && !low_priority_right)
-        right.instruction = {TurnType::Suppressed, DirectionModifier::SlightLeft};
+        right.instruction = {suppressed_right_type, DirectionModifier::SlightLeft};
     else
     {
         if (low_priority_right && !low_priority_left)
+        {
             right.instruction = {TurnType::Turn, DirectionModifier::SlightRight};
+        }
         else
+        {
             right.instruction = {TurnType::Fork, DirectionModifier::SlightRight};
+        }
     }
 }
 
@@ -272,6 +295,12 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
                                      ConnectedRoad &right) const
 {
     // TODO handle low priority road classes in a reasonable way
+    const auto suppressed_type = [&](const ConnectedRoad &road) {
+        const auto in_mode = node_based_graph.GetEdgeData(via_edge).travel_mode;
+        const auto out_mode = node_based_graph.GetEdgeData(road.eid).travel_mode;
+        return in_mode == out_mode ? TurnType::Suppressed : TurnType::Notification;
+    };
+
     if (left.entry_allowed && center.entry_allowed && right.entry_allowed)
     {
         left.instruction = {TurnType::Fork, DirectionModifier::SlightLeft};
@@ -285,7 +314,7 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
             }
             else
             {
-                center.instruction = {TurnType::Suppressed, DirectionModifier::Straight};
+                center.instruction = {suppressed_type(center), DirectionModifier::Straight};
             }
         }
         else
@@ -325,8 +354,10 @@ void IntersectionHandler::assignTrivialTurns(const EdgeID via_eid,
 {
     for (std::size_t index = begin; index != end; ++index)
         if (intersection[index].entry_allowed)
+        {
             intersection[index].instruction = {findBasicTurnType(via_eid, intersection[index]),
                                                getTurnDirection(intersection[index].angle)};
+        }
 }
 
 bool IntersectionHandler::isThroughStreet(const std::size_t index,
@@ -381,19 +412,17 @@ IntersectionHandler::getNextIntersection(const NodeID at, const EdgeID via) cons
     // Starting at node `a` via edge `e0` the intersection generator returns the intersection at `c`
     // writing `tl` (traffic signal) node and the edge `e1` which has the intersection as target.
 
-    NodeID node = SPECIAL_NODEID;
-    EdgeID edge = SPECIAL_EDGEID;
-
-    std::tie(node, edge) = intersection_generator.SkipDegreeTwoNodes(at, via);
-    auto intersection = intersection_generator(node, edge);
-
+    const auto intersection_parameters = intersection_generator.SkipDegreeTwoNodes(at, via);
     // This should never happen, guard against nevertheless
-    if (node == SPECIAL_NODEID || edge == SPECIAL_EDGEID)
+    if (intersection_parameters.nid == SPECIAL_NODEID ||
+        intersection_parameters.via_eid == SPECIAL_EDGEID)
     {
         return boost::none;
     }
 
-    auto intersection_node = node_based_graph.GetTarget(edge);
+    auto intersection =
+        intersection_generator(intersection_parameters.nid, intersection_parameters.via_eid);
+    auto intersection_node = node_based_graph.GetTarget(intersection_parameters.via_eid);
 
     if (intersection.size() <= 2 || intersection.isTrafficSignalOrBarrier())
     {

@@ -9,13 +9,13 @@ Feature: Slipways and Dedicated Turn Lanes
         Given the node map
             """
                     e
-            a b . . c d
-                 `h .
-                   `
-                  1 `
-                    .
-                    f
-                    .
+            a b-----c-d
+               `--h |
+                   ||
+                  1||
+                   ||
+                   `f
+                    |
                     g
             """
 
@@ -36,16 +36,81 @@ Feature: Slipways and Dedicated Turn Lanes
             | a,g       | first,second,second | depart,turn right,arrive |
             | a,1       | first,,             | depart,turn right,arrive |
 
+    Scenario: Turn Instead of Ramp
+        Given the node map
+            """
+                    e
+            a b-----c-d
+               `--h |
+                   ||
+                  1||
+                   ||
+                   `f
+                    |
+                    g
+            """
+
+        And the ways
+            | nodes | highway    | name   | oneway | route |
+            | abc   | trunk      | first  | yes    |       |
+            | cd    | trunk      | first  | yes    |       |
+            | bhf   | trunk_link |        | yes    | ferry |
+            | cfg   | primary    | second | yes    |       |
+            | ec    | primary    | second | yes    |       |
+
+        And the relations
+            | type        | way:from | way:to | node:via | restriction   |
+            | restriction | abc      | cfg    | c        | no_right_turn |
+
+       When I route I should get
+            | waypoints | route                | turns                                  |
+            | a,g       | first,,second,second | depart,turn right,turn straight,arrive |
+
+    Scenario: Turning Sliproad onto a ferry
+        Given the node map
+            """
+                    e
+            a b-----c-d
+               `--h |
+                   ||
+                  1||
+                   ||
+                   `f
+                    |
+                    g
+                    |
+                    i
+            """
+
+        And the ways
+            | nodes | highway    | name   | oneway | route |
+            | abc   | trunk      | first  |        |       |
+            | cd    | trunk      | first  |        |       |
+            | bhf   | trunk_link |        | yes    |       |
+            | cf    | primary    | second | yes    |       |
+            | fg    | primary    | second | yes    | ferry |
+            | ec    | primary    | second | yes    |       |
+            | gi    | primary    | second | yes    |       |
+
+        And the relations
+            | type        | way:from | way:to | node:via | restriction   |
+            | restriction | abc      | cf     | c        | no_right_turn |
+
+       When I route I should get
+            | waypoints | route                       | turns                                                        |
+            | a,i       | first,,second,second,second | depart,turn right,turn straight,notification straight,arrive |
+            | a,1       | first,,                     | depart,turn right,arrive                                     |
+
     Scenario: Turn Instead of Ramp - Max-Speed
         Given the node map
             """
                     e
             a-b-----c-------------------------d
-                 `h |
+               `--h |
                    ||
                   1||
-                   `|
-                    f
+                   ||
+                   `f
                     |
                     g
             """
@@ -72,18 +137,20 @@ Feature: Slipways and Dedicated Turn Lanes
         Given the node map
             """
                     e
-            a b     c d
-                  h
-
-
-
-
-
-
-
+                    |
+                    …
+            a-b-----c--d
+               `--h …
+                   \|
+                    |
+                    |
+                    |
+                    |
+                    |
+                    |
                     f
-
-
+                    |
+                    |
                     g
             """
 
@@ -101,14 +168,16 @@ Feature: Slipways and Dedicated Turn Lanes
         Given the node map
             """
                     e
-            a b     c d
-                  h
-
-
-
+                    |
+                    …
+            a-b-----c-d
+               `--h …
+                   \|
+                    |
+                    |
                     f
-
-
+                    |
+                    |
                     g
             """
 
@@ -125,15 +194,15 @@ Feature: Slipways and Dedicated Turn Lanes
     Scenario: Inner city expressway with on road
         Given the node map
             """
-            a b . . . c g
-                   `f .
-                     `
-                      .
-                      .
+            a b-------c-g
+                 `--f |
+                     \|
+                      |
+                      |
                       d
-                      .
-                      .
-                      .
+                      |
+                      |
+                      |
                       e
             """
 
@@ -157,12 +226,12 @@ Feature: Slipways and Dedicated Turn Lanes
         Given the node map
             """
             a   f
-
+            |   |
             b   e
-
-
-              g
-
+            |\ /|
+            | | |
+            | g |
+            |   |
             c   d
             """
 
@@ -180,11 +249,11 @@ Feature: Slipways and Dedicated Turn Lanes
         Given the node map
             """
             a   f
-
+            |   |
             b   e
-              g
-
-
+            |\g/|
+            |   |
+            |   |
             c   d
             """
 
@@ -281,23 +350,23 @@ Feature: Slipways and Dedicated Turn Lanes
     Scenario: Self-Loop
         Given the node map
             """
-                                                      l     k
-                                                                  j
-                                                  m
-                                                                      i
-
-
-                                                                        h
-
-                                                n
-
-                                                                        g
-                                                o
-
-                                                                      f
-                                              p
-                                                                  e
-            a         b                 c                   d
+                                                    /-l-----k---\
+                                                   /             `j--
+                                                  m                  \
+                                                 /                    i
+                                                /                      \
+                                                |                       \ 
+                                                |                       h
+                                                |                       |
+                                                n                       |
+                                                |                       |
+                                                |                       g
+                                                o                       |
+                                               /                       /
+                                              |                       f
+                                           /- p                     /
+                                          /                        e
+            a ------- b --------------- c ----------------- d ---/
             """
 
      And the ways
@@ -316,23 +385,23 @@ Feature: Slipways and Dedicated Turn Lanes
     Scenario: Self-Loop - Bidirectional
         Given the node map
             """
-                                                      l     k
-                                                                  j
-                                                  m
-                                                                      i
-
-
-                                                                        h
-
-                                                n
-
-                                                                        g
-                                                o
-
-                                                                      f
-                                              p
-                                                                  e
-            a         b                 c                   d
+                                                    /-l-----k---\
+                                                   /             `j--
+                                                  m                  \
+                                                 /                    i
+                                                /                      \
+                                                |                       \ 
+                                                |                       h
+                                                |                       |
+                                                n                       |
+                                                |                       |
+                                                |                       g
+                                                o                       |
+                                               /                       /
+                                              |                       f
+                                           /- p                     /
+                                          /                        e
+            a ------- b --------------- c ----------------- d ---/
             """
 
      And the ways
@@ -349,31 +418,30 @@ Feature: Slipways and Dedicated Turn Lanes
         Given the node map
             """
                                                           j
-            a b                                           c             d
-
-
-
-
-
-                    e
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                                                          1
-
-                                                f         g
-
+            a-b ----------------------------------------- c ------------d
+               \                                          |
+                \                                         |
+                 \                                        |
+                  \                                       |
+                   \                                      |
+                    e                                     |
+                     \                                    |
+                      \                                   |
+                       \                                  |
+                        \                                 |
+                         \                                |
+                          \                               |
+                           \                              |
+                            \                             |
+                             \                            |
+                              \                           |
+                               \                          |
+                                \                         |
+                                 \                        |
+                                  \                       |
+                                   \                      1
+                                    `---------- f ------- g ----------\
+                                                          |            \
                                                           i             h
             """
 
@@ -398,20 +466,20 @@ Feature: Slipways and Dedicated Turn Lanes
     Scenario: Turn Instead of Ramp
         Given the node map
             """
-                                          f
-                    g           h
-                                    d     e
-            i       c           j
-
-
-
-
-
-
-
-
+                     /--------------------f
+                    g-----------h--\      |
+                                    d-----e
+            i       c-----------j--/
+            |       |
+            |       |
+            |       |
+            |       |
+            |       |
+             \     / 
+              \   /
+               \ /
                 b
-
+                |
                 a
             """
 
@@ -782,3 +850,82 @@ Feature: Slipways and Dedicated Turn Lanes
        When I route I should get
             | waypoints | route                         | turns                              |
             | s,g       | main,sliproad,another,another | depart,turn right,turn left,arrive |
+
+    @sliproads:
+    Scenario: Throughabout-Sliproad
+        Given the node map
+            """
+                             t
+                             |
+                         - - e - -
+                       /           \
+                     |               |
+                     |               |
+            z - s -  a - - - - - - - b - - -x
+                   ' c               y
+                     |               |
+                       \           /
+                         - -d - -
+            """
+
+        And the ways
+            | nodes | name    | highway    | oneway | junction   | #                    |
+            | zs    | through | trunk      | yes    |            |                      |
+            | sa    | through | trunk      | yes    |            |                      |
+            | ab    | through | trunk      | yes    |            |                      |
+            | bx    | through | trunk      | yes    |            |                      |
+            | ac    | round   | primary    | yes    | roundabout |                      |
+            | cdy   | round   | primary    | yes    | roundabout |                      |
+            | yb    | round   | primary    | yes    | roundabout |                      |
+            | be    | round   | primary    | yes    | roundabout |                      |
+            | ea    | round   | primary    | yes    | roundabout |                      |
+            | et    | out     | primary    | yes    |            | the extraterrestrial |
+            | sc    |         | trunk_link | yes    |            |                      |
+            | yx    | right   | trunk_link | yes    |            |                      |
+
+        And the relations
+            | type        | way:from | way:to | node:via | restriction   |
+            | restriction | sa       | ab     | a        | only_straight |
+            | restriction | ab       | bx     | b        | only_straight |
+            | restriction | yb       | be     | b        | only_straight |
+
+        When I route I should get
+            | waypoints | route            | turns                                            | locations |
+            | z,t       | through,,out,out | depart,off ramp slight right,round-exit-3,arrive | z,s,c,t   |
+
+    Scenario: Sliproad before a roundabout
+        Given the node map
+            """
+                      e
+            a - b - - c - d
+                    'f|l'
+                      m
+                      g
+                      |
+                     .h-_
+                k - i    |
+                     '.j.'
+
+            """
+
+        And the ways
+            | nodes | junction   | oneway | highway   | name |
+            | ab    |            | yes    | primary   | road |
+            | bc    |            | yes    | primary   | road |
+            | cd    |            | yes    | primary   | road |
+            | ec    |            | yes    | secondary |      |
+            | cm    |            | yes    | secondary |      |
+            | mg    |            | yes    | primary   |      |
+            | gh    |            | no     | primary   |      |
+            | hijh  | roundabout | yes    | primary   |      |
+            | ik    |            | yes    | primary   |      |
+            | bfm   |            | yes    | primary   |      |
+            | gld   |            | yes    | primary   |      |
+
+		And the relations
+            | type        | way:from | way:to | node:via | restriction   |
+            | restriction | bc       | cd     | c        | only_straight |
+
+        When I route I should get
+            | waypoints | route     | turns                                                     | locations |
+            | a,k       | road,,,   | depart,continue right,roundabout turn right exit-1,arrive | a,b,h,k   |

@@ -1,6 +1,7 @@
 #include "contractor/contractor.hpp"
 #include "contractor/contractor_config.hpp"
-#include "util/exception.hpp"
+#include "extractor/profile_properties.hpp"
+#include "storage/io.hpp"
 #include "util/log.hpp"
 #include "util/version.hpp"
 
@@ -163,6 +164,16 @@ int main(int argc, char *argv[]) try
         return EXIT_FAILURE;
     }
 
+    if (boost::filesystem::is_regular_file(contractor_config.osrm_input_path))
+    {
+        // Propagate profile properties to contractor configuration structure
+        extractor::ProfileProperties profile_properties;
+        storage::io::FileReader profile_properties_file(contractor_config.profile_properties_path,
+                                                        storage::io::FileReader::HasNoFingerprint);
+        profile_properties_file.ReadInto<extractor::ProfileProperties>(&profile_properties, 1);
+        contractor_config.weight_multiplier = profile_properties.GetWeightMultiplier();
+    }
+
     util::Log() << "Input file: " << contractor_config.osrm_input_path.filename().string();
     util::Log() << "Threads: " << contractor_config.requested_num_threads;
 
@@ -180,3 +191,10 @@ catch (const std::bad_alloc &e)
     util::Log(logERROR) << "Please provide more memory or consider using a larger swapfile";
     return EXIT_FAILURE;
 }
+#ifdef _WIN32
+catch (const std::exception &e)
+{
+    util::Log(logERROR) << "[exception] " << e.what();
+    return EXIT_FAILURE;
+}
+#endif

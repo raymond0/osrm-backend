@@ -4,10 +4,12 @@
 #include "extractor/compressed_edge_container.hpp"
 #include "extractor/guidance/intersection.hpp"
 #include "extractor/guidance/intersection_generator.hpp"
+#include "extractor/guidance/intersection_normalization_operation.hpp"
 #include "extractor/guidance/intersection_normalizer.hpp"
 #include "extractor/guidance/motorway_handler.hpp"
 #include "extractor/guidance/roundabout_handler.hpp"
 #include "extractor/guidance/sliproad_handler.hpp"
+#include "extractor/guidance/suppress_mode_handler.hpp"
 #include "extractor/guidance/turn_classification.hpp"
 #include "extractor/guidance/turn_handler.hpp"
 #include "extractor/query_node.hpp"
@@ -61,11 +63,9 @@ class TurnAnalysis
     {
         // the basic shape, containing all turns
         IntersectionShape intersection_shape;
-        // normalised shape, merged some roads into others, adjusted bearings
-        // see intersection_normaliser for further explanations
-        IntersectionShape normalised_intersection_shape;
-        // map containing information about which road was merged into which
-        std::vector<std::pair<EdgeID, EdgeID>> merging_map;
+        // normalized shape, merged some roads into others, adjusted bearings
+        // see intersection_normalizer for further explanations
+        IntersectionNormalizer::NormalizationResult annotated_normalized_shape;
     };
     OSRM_ATTR_WARN_UNUSED
     ShapeResult ComputeIntersectionShapes(const NodeID node_at_center_of_intersection) const;
@@ -86,6 +86,7 @@ class TurnAnalysis
     const MotorwayHandler motorway_handler;
     const TurnHandler turn_handler;
     const SliproadHandler sliproad_handler;
+    const SuppressModeHandler suppress_mode_handler;
 
     // Utility function, setting basic turn types. Prepares for normal turn handling.
     Intersection

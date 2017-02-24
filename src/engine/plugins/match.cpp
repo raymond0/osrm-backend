@@ -19,14 +19,6 @@
 #include <string>
 #include <vector>
 
-static double search_radius_for_gps_radius(double gps_radius)
-{
-    // For a given GPS radius, determine the radius we need to search for candidate street segments
-    // to have a 99.9% chance of finding the correct segment.
-    // For more detail, see the analysis at https://github.com/Project-OSRM/osrm-backend/pull/3184
-    return std::min(gps_radius * 3.5 + 45, 200.0);
-}
-
 namespace osrm
 {
 namespace engine
@@ -116,7 +108,7 @@ void filterCandidates(const std::vector<util::Coordinate> &coordinates,
     }
 }
 
-Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
+Status MatchPlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
                                   const api::MatchParameters &parameters,
                                   util::json::Object &json_result) const
 {
@@ -160,9 +152,16 @@ Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFaca
         std::transform(parameters.radiuses.begin(),
                        parameters.radiuses.end(),
                        search_radiuses.begin(),
-                       [&](const boost::optional<double> &maybe_radius) {
-                           double gps_radius = maybe_radius ? *maybe_radius : DEFAULT_GPS_PRECISION;
-                           return search_radius_for_gps_radius(gps_radius);
+                       [](const boost::optional<double> &maybe_radius) {
+                           if (maybe_radius)
+                           {
+                               return *maybe_radius * RADIUS_MULTIPLIER;
+                           }
+                           else
+                           {
+                               return DEFAULT_GPS_PRECISION * RADIUS_MULTIPLIER;
+                           }
+
                        });
     }
 
@@ -181,7 +180,7 @@ Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFaca
     }
 
     // call the actual map matching
-    SubMatchingList sub_matchings = map_matching(*facade,
+    SubMatchingList sub_matchings = map_matching(facade,
                                                  candidates_lists,
                                                  parameters.coordinates,
                                                  parameters.timestamps,
@@ -212,7 +211,7 @@ Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFaca
         // bi-directional
         // phantom nodes for possible uturns
         shortest_path(
-            *facade, sub_routes[index].segment_end_coordinates, {false}, sub_routes[index]);
+            facade, sub_routes[index].segment_end_coordinates, {false}, sub_routes[index]);
         BOOST_ASSERT(sub_routes[index].shortest_path_length != INVALID_EDGE_WEIGHT);
     }
 

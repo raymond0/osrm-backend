@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(test_route_same_coordinates_fixture)
     for (auto &itr : result.values["waypoints"].get<json::Array>().values)
         itr.get<json::Object>().values["hint"] = "";
 
-    const auto location = json::Array{{{7.437070}, {43.749247}}};
+    const auto location = json::Array{{{7.437070}, {43.749248}}};
 
     json::Object reference{
         {{"code", "Ok"},
@@ -50,15 +50,19 @@ BOOST_AUTO_TEST_CASE(test_route_same_coordinates_fixture)
           json::Array{{json::Object{
               {{"distance", 0.},
                {"duration", 0.},
+               {"weight", 0.},
+               {"weight_name", "routability"},
                {"geometry", "yw_jGupkl@??"},
                {"legs",
                 json::Array{{json::Object{
                     {{"distance", 0.},
                      {"duration", 0.},
+                     {"weight", 0.},
                      {"summary", "Boulevard du Larvotto"},
                      {"steps",
                       json::Array{{{json::Object{{{"duration", 0.},
                                                   {"distance", 0.},
+                                                  {"weight", 0.},
                                                   {"geometry", "yw_jGupkl@??"},
                                                   {"name", "Boulevard du Larvotto"},
                                                   {"mode", "driving"},
@@ -78,6 +82,7 @@ BOOST_AUTO_TEST_CASE(test_route_same_coordinates_fixture)
 
                                    json::Object{{{"duration", 0.},
                                                  {"distance", 0.},
+                                                 {"weight", 0.},
                                                  {"geometry", "yw_jGupkl@"},
                                                  {"name", "Boulevard du Larvotto"},
                                                  {"mode", "driving"},
@@ -359,6 +364,95 @@ BOOST_AUTO_TEST_CASE(test_route_response_for_locations_across_components)
         BOOST_CHECK(longitude >= -180. && longitude <= 180.);
         BOOST_CHECK(latitude >= -90. && latitude <= 90.);
     }
+}
+
+BOOST_AUTO_TEST_CASE(test_route_user_disables_generating_hints)
+{
+    const auto args = get_args();
+    auto osrm = getOSRM(args.at(0));
+
+    using namespace osrm;
+
+    RouteParameters params;
+    params.steps = true;
+    params.coordinates.push_back(get_dummy_location());
+    params.coordinates.push_back(get_dummy_location());
+    params.generate_hints = false;
+
+    json::Object result;
+    const auto rc = osrm.Route(params, result);
+    BOOST_CHECK(rc == Status::Ok);
+
+    for (auto waypoint : result.values["waypoints"].get<json::Array>().values)
+        BOOST_CHECK_EQUAL(waypoint.get<json::Object>().values.count("hint"), 0);
+}
+
+BOOST_AUTO_TEST_CASE(speed_annotation_matches_duration_and_distance)
+{
+    const auto args = get_args();
+    auto osrm = getOSRM(args.at(0));
+
+    using namespace osrm;
+
+    RouteParameters params;
+    params.annotations_type = RouteParameters::AnnotationsType::Duration |
+                              RouteParameters::AnnotationsType::Distance |
+                              RouteParameters::AnnotationsType::Speed;
+    params.coordinates.push_back(get_dummy_location());
+    params.coordinates.push_back(get_dummy_location());
+
+    json::Object result;
+    const auto rc = osrm.Route(params, result);
+    BOOST_CHECK(rc == Status::Ok);
+
+    const auto &routes = result.values["routes"].get<json::Array>().values;
+    const auto &legs = routes[0].get<json::Object>().values.at("legs").get<json::Array>().values;
+    const auto &annotation =
+        legs[0].get<json::Object>().values.at("annotation").get<json::Object>();
+    const auto &speeds = annotation.values.at("speed").get<json::Array>().values;
+    const auto &durations = annotation.values.at("duration").get<json::Array>().values;
+    const auto &distances = annotation.values.at("distance").get<json::Array>().values;
+    int length = speeds.size();
+    for (int i = 0; i < length; i++)
+    {
+        auto speed = speeds[i].get<json::Number>().value;
+        auto duration = durations[i].get<json::Number>().value;
+        auto distance = distances[i].get<json::Number>().value;
+        BOOST_CHECK_EQUAL(speed, std::round(distance / duration * 10.) / 10.);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_manual_setting_of_annotations_property)
+{
+    const auto args = get_args();
+    auto osrm = getOSRM(args.at(0));
+
+    using namespace osrm;
+
+    RouteParameters params{};
+    params.annotations = true;
+    params.coordinates.push_back(get_dummy_location());
+    params.coordinates.push_back(get_dummy_location());
+
+    json::Object result;
+    const auto rc = osrm.Route(params, result);
+    BOOST_CHECK(rc == Status::Ok);
+
+    const auto code = result.values.at("code").get<json::String>().value;
+    BOOST_CHECK_EQUAL(code, "Ok");
+
+    auto annotations = result.values["routes"]
+                           .get<json::Array>()
+                           .values[0]
+                           .get<json::Object>()
+                           .values["legs"]
+                           .get<json::Array>()
+                           .values[0]
+                           .get<json::Object>()
+                           .values["annotation"]
+                           .get<json::Object>()
+                           .values;
+    BOOST_CHECK_EQUAL(annotations.size(), 5);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

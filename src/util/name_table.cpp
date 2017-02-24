@@ -1,94 +1,91 @@
 #include "util/name_table.hpp"
-#include "util/exception.hpp"
+#include "storage/io.hpp"
 #include "util/log.hpp"
-
-#include <algorithm>
-#include <fstream>
-#include <limits>
-
-#include <boost/filesystem/fstream.hpp>
 
 namespace osrm
 {
 namespace util
 {
 
-NameTable::NameTable(const std::string &filename)
+NameTable::NameTable(const std::string &file_name)
 {
-    storage::io::FileReader name_stream_file_reader(filename,
-                                                    storage::io::FileReader::HasNoFingerprint);
+    using FileReader = storage::io::FileReader;
 
-    // name_stream >> m_name_table;
+    FileReader name_stream_file_reader(file_name, FileReader::HasNoFingerprint);
+    const auto file_size = name_stream_file_reader.GetSize();
 
-    m_name_table.ReadARangeTable(name_stream_file_reader);
+    m_buffer = BufferType(static_cast<ValueType *>(::operator new(file_size)),
+                          [](void *ptr) { ::operator delete(ptr); });
+    name_stream_file_reader.ReadInto<char>(m_buffer.get(), file_size);
+    m_name_table.reset(m_buffer.get(), m_buffer.get() + file_size);
 
-    unsigned number_of_chars = name_stream_file_reader.ReadElementCount32();
-
-    m_names_char_list.resize(number_of_chars + 1); //+1 gives sentinel element
-    m_names_char_list.back() = 0;
-    if (number_of_chars > 0)
-    {
-        name_stream_file_reader.ReadInto(&m_names_char_list[0], number_of_chars);
-    }
-    else
+    if (m_name_table.empty())
     {
         util::Log() << "list of street names is empty in construction of name table from: \""
-                    << filename << "\"";
+                    << file_name << "\"";
     }
 }
 
-std::string NameTable::GetNameForID(const unsigned name_id) const
+void NameTable::reset(ValueType *begin, ValueType *end)
 {
-    if (std::numeric_limits<unsigned>::max() == name_id)
-    {
-        return "";
-    }
-    auto range = m_name_table.GetRange(name_id);
-
-    std::string result;
-    result.reserve(range.size());
-    if (range.begin() != range.end())
-    {
-        result.resize(range.back() - range.front() + 1);
-        std::copy(m_names_char_list.begin() + range.front(),
-                  m_names_char_list.begin() + range.back() + 1,
-                  result.begin());
-    }
-    return result;
+    m_buffer.reset();
+    m_name_table.reset(begin, end);
 }
 
-std::string NameTable::GetRefForID(const unsigned name_id) const
+StringView NameTable::GetNameForID(const NameID id) const
 {
-    // Way string data is stored in blocks based on `name_id` as follows:
+    if (id == INVALID_NAMEID)
+        return {};
+
+    return m_name_table.at(id);
+}
+
+StringView NameTable::GetDestinationsForID(const NameID id) const
+{
+    if (id == INVALID_NAMEID)
+        return {};
+
+    return m_name_table.at(id + 1);
+}
+
+StringView NameTable::GetRefForID(const NameID id) const
+{
+    if (id == INVALID_NAMEID)
+        return {};
+
+    // Way string data is stored in blocks based on `id` as follows:
     //
     // | name | destination | pronunciation | ref |
     //                                      ^     ^
     //                                      [range)
-    //                                       ^ name_id + 3
+    //                                       ^ id + 3
     //
-    // `name_id + offset` gives us the range of chars.
+    // `id + offset` gives us the range of chars.
     //
     // Offset 0 is name, 1 is destination, 2 is pronunciation, 3 is ref.
     // See datafacades and extractor callbacks for details.
     const constexpr auto OFFSET_REF = 3u;
-    return GetNameForID(name_id + OFFSET_REF);
+    return m_name_table.at(id + OFFSET_REF);
 }
 
-std::string NameTable::GetPronunciationForID(const unsigned name_id) const
+StringView NameTable::GetPronunciationForID(const NameID id) const
 {
-    // Way string data is stored in blocks based on `name_id` as follows:
+    if (id == INVALID_NAMEID)
+        return {};
+
+    // Way string data is stored in blocks based on `id` as follows:
     //
     // | name | destination | pronunciation | ref |
     //                      ^               ^
     //                      [range)
-    //                       ^ name_id + 2
+    //                       ^ id + 2
     //
-    // `name_id + offset` gives us the range of chars.
+    // `id + offset` gives us the range of chars.
     //
     // Offset 0 is name, 1 is destination, 2 is pronunciation, 3 is ref.
     // See datafacades and extractor callbacks for details.
     const constexpr auto OFFSET_PRONUNCIATION = 2u;
-    return GetNameForID(name_id + OFFSET_PRONUNCIATION);
+    return m_name_table.at(id + OFFSET_PRONUNCIATION);
 }
 
 } // namespace util

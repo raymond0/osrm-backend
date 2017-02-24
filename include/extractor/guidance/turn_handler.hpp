@@ -10,6 +10,8 @@
 #include "util/name_table.hpp"
 #include "util/node_based_graph.hpp"
 
+#include <boost/optional.hpp>
+
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -45,9 +47,35 @@ class TurnHandler : public IntersectionHandler
                             Intersection intersection) const override final;
 
   private:
+    struct Fork
+    {
+        const Intersection::iterator intersection_base;
+        const Intersection::iterator begin;
+        const Intersection::iterator end;
+        const std::size_t size;
+        Fork(const Intersection::iterator intersection_base,
+             const Intersection::iterator begin,
+             const Intersection::iterator end);
+        ConnectedRoad &getRight() const;
+        ConnectedRoad &getLeft() const;
+        ConnectedRoad &getMiddle() const;
+        ConnectedRoad &getRight();
+        ConnectedRoad &getLeft();
+        ConnectedRoad &getMiddle();
+        std::size_t getRightIndex() const;
+        std::size_t getLeftIndex() const;
+    };
+
     bool isObviousOfTwo(const EdgeID via_edge,
                         const ConnectedRoad &road,
                         const ConnectedRoad &other) const;
+
+    bool hasObvious(const EdgeID &via_edge, const Fork &fork) const;
+
+    boost::optional<Fork> findForkCandidatesByGeometry(Intersection &intersection) const;
+
+    bool isCompatibleByRoadClass(const Intersection &intersection, const Fork fork) const;
+
     // Dead end.
     OSRM_ATTR_WARN_UNUSED
     Intersection handleOneWayTurn(Intersection intersection) const;
@@ -68,8 +96,7 @@ class TurnHandler : public IntersectionHandler
     handleDistinctConflict(const EdgeID via_edge, ConnectedRoad &left, ConnectedRoad &right) const;
 
     // Classification
-    std::pair<std::size_t, std::size_t> findFork(const EdgeID via_edge,
-                                                 const Intersection &intersection) const;
+    boost::optional<Fork> findFork(const EdgeID via_edge, Intersection &intersection) const;
 
     OSRM_ATTR_WARN_UNUSED
     Intersection assignLeftTurns(const EdgeID via_edge,

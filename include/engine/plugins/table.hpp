@@ -20,13 +20,13 @@ class TablePlugin final : public BasePlugin
   public:
     explicit TablePlugin(const int max_locations_distance_table);
 
-    Status HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
+    Status HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
                          const api::TableParameters &params,
                          util::json::Object &result) const;
 
   private:
     mutable SearchEngineData heaps;
-    mutable routing_algorithms::ManyToManyRouting<datafacade::BaseDataFacade> distance_table;
+    mutable routing_algorithms::ManyToManyRouting distance_table;
     const int max_locations_distance_table;
 };
 }

@@ -11,19 +11,6 @@ namespace extractor
 namespace guidance
 {
 
-struct TurnPossibility
-{
-    TurnPossibility(bool entry_allowed, double bearing)
-        : entry_allowed(entry_allowed), bearing(std::move(bearing))
-    {
-    }
-
-    TurnPossibility() : entry_allowed(false), bearing(0) {}
-
-    bool entry_allowed;
-    double bearing;
-};
-
 std::pair<util::guidance::EntryClass, util::guidance::BearingClass>
 classifyIntersection(Intersection intersection)
 {
@@ -45,7 +32,7 @@ classifyIntersection(Intersection intersection)
 
         DiscreteBearing last_discrete_bearing = util::guidance::BearingClass::getDiscreteBearing(
             std::round(intersection.back().bearing));
-        for (const auto road : intersection)
+        for (const auto &road : intersection)
         {
             const DiscreteBearing discrete_bearing =
                 util::guidance::BearingClass::getDiscreteBearing(std::round(road.bearing));

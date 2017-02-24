@@ -5,6 +5,8 @@
 #include "util/exception_utils.hpp"
 #include "util/log.hpp"
 
+#include <boost/assert.hpp>
+
 #include <array>
 #include <cstdint>
 
@@ -16,9 +18,7 @@ namespace storage
 // Added at the start and end of each block as sanity check
 const constexpr char CANARY[4] = {'O', 'S', 'R', 'M'};
 
-const constexpr char *block_id_to_name[] = {"NAME_OFFSETS",
-                                            "NAME_BLOCKS",
-                                            "NAME_CHAR_LIST",
+const constexpr char *block_id_to_name[] = {"NAME_CHAR_DATA",
                                             "NAME_ID_LIST",
                                             "VIA_NODE_LIST",
                                             "GRAPH_NODE_LIST",
@@ -33,6 +33,8 @@ const constexpr char *block_id_to_name[] = {"NAME_OFFSETS",
                                             "GEOMETRIES_NODE_LIST",
                                             "GEOMETRIES_FWD_WEIGHT_LIST",
                                             "GEOMETRIES_REV_WEIGHT_LIST",
+                                            "GEOMETRIES_FWD_DURATION_LIST",
+                                            "GEOMETRIES_REV_DURATION_LIST",
                                             "HSGR_CHECKSUM",
                                             "TIMESTAMP",
                                             "FILE_INDEX_PATH",
@@ -52,15 +54,15 @@ const constexpr char *block_id_to_name[] = {"NAME_OFFSETS",
                                             "POST_TURN_BEARING",
                                             "TURN_LANE_DATA",
                                             "LANE_DESCRIPTION_OFFSETS",
-                                            "LANE_DESCRIPTION_MASKS"};
+                                            "LANE_DESCRIPTION_MASKS",
+                                            "TURN_WEIGHT_PENALTIES",
+                                            "TURN_DURATION_PENALTIES"};
 
 struct DataLayout
 {
     enum BlockID
     {
-        NAME_OFFSETS = 0,
-        NAME_BLOCKS,
-        NAME_CHAR_LIST,
+        NAME_CHAR_DATA = 0,
         NAME_ID_LIST,
         VIA_NODE_LIST,
         GRAPH_NODE_LIST,
@@ -75,6 +77,8 @@ struct DataLayout
         GEOMETRIES_NODE_LIST,
         GEOMETRIES_FWD_WEIGHT_LIST,
         GEOMETRIES_REV_WEIGHT_LIST,
+        GEOMETRIES_FWD_DURATION_LIST,
+        GEOMETRIES_REV_DURATION_LIST,
         HSGR_CHECKSUM,
         TIMESTAMP,
         FILE_INDEX_PATH,
@@ -95,6 +99,8 @@ struct DataLayout
         TURN_LANE_DATA,
         LANE_DESCRIPTION_OFFSETS,
         LANE_DESCRIPTION_MASKS,
+        TURN_WEIGHT_PENALTIES,
+        TURN_DURATION_PENALTIES,
         NUM_BLOCKS
     };
 
@@ -106,6 +112,7 @@ struct DataLayout
 
     template <typename T> inline void SetBlockSize(BlockID bid, uint64_t entries)
     {
+        static_assert(sizeof(T) % alignof(T) == 0, "aligned T* can't be used as an array pointer");
         num_entries[bid] = entries;
         entry_size[bid] = sizeof(T);
         entry_align[bid] = alignof(T);
@@ -126,6 +133,7 @@ struct DataLayout
         uint64_t result = 0;
         for (auto i = 0; i < NUM_BLOCKS; i++)
         {
+            BOOST_ASSERT(entry_align[i] > 0);
             result += 2 * sizeof(CANARY) + GetBlockSize((BlockID)i) + entry_align[i];
         }
         return result;
@@ -192,19 +200,14 @@ struct DataLayout
 
 enum SharedDataType
 {
-    CURRENT_REGIONS,
-    LAYOUT_1,
-    DATA_1,
-    LAYOUT_2,
-    DATA_2,
-    LAYOUT_NONE,
-    DATA_NONE
+    REGION_NONE,
+    REGION_1,
+    REGION_2
 };
 
 struct SharedDataTimestamp
 {
-    SharedDataType layout;
-    SharedDataType data;
+    SharedDataType region;
     unsigned timestamp;
 };
 
@@ -212,20 +215,12 @@ inline std::string regionToString(const SharedDataType region)
 {
     switch (region)
     {
-    case CURRENT_REGIONS:
-        return "CURRENT_REGIONS";
-    case LAYOUT_1:
-        return "LAYOUT_1";
-    case DATA_1:
-        return "DATA_1";
-    case LAYOUT_2:
-        return "LAYOUT_2";
-    case DATA_2:
-        return "DATA_2";
-    case LAYOUT_NONE:
-        return "LAYOUT_NONE";
-    case DATA_NONE:
-        return "DATA_NONE";
+    case REGION_1:
+        return "REGION_1";
+    case REGION_2:
+        return "REGION_2";
+    case REGION_NONE:
+        return "REGION_NONE";
     default:
         return "INVALID_REGION";
     }

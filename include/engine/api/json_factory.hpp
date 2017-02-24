@@ -40,6 +40,11 @@ util::json::Array coordinateToLonLat(const util::Coordinate coordinate);
 
 std::string modeToString(const extractor::TravelMode mode);
 
+/**
+ * Ensures that a bearing value is a whole number, and clamped to the range 0-359
+ */
+inline double roundAndClampBearing(double bearing) { return std::fmod(std::round(bearing), 360); }
+
 } // namespace detail
 
 template <unsigned POLYLINE_PRECISION, typename ForwardIter>
@@ -82,8 +87,13 @@ util::json::Object makeRouteStep(guidance::RouteStep step, util::json::Value geo
 
 util::json::Object makeRoute(const guidance::Route &route,
                              util::json::Array legs,
-                             boost::optional<util::json::Value> geometry);
+                             boost::optional<util::json::Value> geometry,
+                             const char *weight_name);
 
+// Creates a Waypoint without Hint, see the Hint overload below
+util::json::Object makeWaypoint(const util::Coordinate location, std::string name);
+
+// Creates a Waypoint with Hint, see the overload above when Hint is not needed
 util::json::Object
 makeWaypoint(const util::Coordinate location, std::string name, const Hint &hint);
 

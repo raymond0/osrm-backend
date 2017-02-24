@@ -182,3 +182,18 @@ Feature: Bike - Access tags on ways
             | bridleway |            | yes  |         | x     |
             | bridleway | designated |      |         |       |
             | bridleway |            |      |         |       |
+
+    Scenario: Bike - Tram with oneway when access is implicit
+        Then routability should be
+            | highway     | railway | access | oneway | bothw |
+            | residential | tram    |        | yes    | x     |
+            | service     | tram    | psv    | yes    | x     |
+
+    Scenario: Bike - Access combinations
+        Then routability should be
+            | highway    | access     | bothw |
+            | primary    | permissive | x     |
+            | steps      | permissive | x     |
+            | footway    | permissive | x     |
+            | garbagetag | permissive | x     |
+

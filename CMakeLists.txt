@@ -17,23 +17,24 @@ endif()
 option(ENABLE_MASON "Use mason for dependencies" OFF)
 option(ENABLE_CCACHE "Speed up incremental rebuilds via ccache" ON)
 option(BUILD_TOOLS "Build OSRM tools" OFF)
-option(BUILD_COMPONENTS "Build osrm-components" OFF)
+option(BUILD_PACKAGE "Build OSRM package" OFF)
 option(ENABLE_ASSERTIONS "Use assertions in release mode" OFF)
 option(ENABLE_COVERAGE "Build with coverage instrumentalisation" OFF)
 option(ENABLE_SANITIZER "Use memory sanitizer for Debug build" OFF)
-option(ENABLE_LTO "Use LTO if available" ON)
+option(ENABLE_LTO "Use LTO if available" OFF)
 option(ENABLE_FUZZING "Fuzz testing using LLVM's libFuzzer" OFF)
 option(ENABLE_GOLD_LINKER "Use GNU gold linker if available" ON)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 if(ENABLE_MASON)
   # versions in use
-  set(MASON_BOOST_VERSION "1.61.0")
-  set(MASON_STXXL_VERSION "1.4.1")
+  set(MASON_BOOST_VERSION "1.63.0")
+  set(MASON_STXXL_VERSION "1.4.1-1")
   set(MASON_EXPAT_VERSION "2.2.0")
   set(MASON_LUA_VERSION "5.2.4")
-  set(MASON_LUABIND_VERSION "e414c57bcb687bb3091b7c55bbff6947f052e46b")
   set(MASON_BZIP2_VERSION "1.0.6")
-  set(MASON_TBB_VERSION "43_20150316")
+  set(MASON_TBB_VERSION "2017_20161128")
 
   message(STATUS "Enabling mason")
 
@@ -42,8 +43,7 @@ if(ENABLE_MASON)
     message(FATAL_ERROR "curl command required with -DENABLE_MASON")
   endif()
 
-  set(MASON_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/third_party/mason/mason)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/third_party/mason/mason.cmake)
+  include(mason)
 endif()
 
 # be compatible with version handling before cmake 3.x
@@ -77,8 +77,7 @@ endfunction(add_dependency_defines)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(CheckCXXCompilerFlag)
 include(FindPackageHandleStandardArgs)
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(GNUInstallDirs)
 
 set(bitness 32)
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -92,16 +91,21 @@ if(WIN32 AND MSVC_VERSION LESS 1900)
   message(FATAL_ERROR "Building with Microsoft compiler needs Latest Visual Studio 2015 (Community or better)")
 endif()
 
+# Strictly require GCC>=4.9 and Clang>=3.4 - GCC 4.8 is already too old for C++14.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
+    message(FATAL_ERROR "GCC>=4.9 required. In case you are on Ubuntu upgrade via ppa:ubuntu-toolchain-r/test")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.4)
+    message(FATAL_ERROR "Clang>=3.4 required. In case you are on Ubuntu upgrade via http://apt.llvm.org")
+  endif()
+endif()
+
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/include/)
 include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
+include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/third_party/sol2/)
 include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/third_party/variant/include)
-
-add_custom_target(FingerPrintConfigure ALL ${CMAKE_COMMAND}
-  "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}"
-  "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
-  -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/FingerPrint-Config.cmake"
-  COMMENT "Configuring revision fingerprint"
-  VERBATIM)
 
 set(BOOST_COMPONENTS date_time chrono filesystem iostreams program_options regex system thread unit_test_framework)
 
@@ -123,7 +127,6 @@ add_library(STORAGE OBJECT ${StorageGlob})
 add_library(ENGINE OBJECT ${EngineGlob})
 add_library(SERVER OBJECT ${ServerGlob})
 
-add_dependencies(UTIL FingerPrintConfigure)
 set_target_properties(UTIL PROPERTIES LINKER_LANGUAGE CXX)
 
 add_executable(osrm-extract src/tools/extract.cpp)
@@ -228,7 +231,7 @@ if(CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES MinRelSize OR CM
       find_program(GCC_AR gcc-ar)
       find_program(GCC_RANLIB gcc-ranlib)
       if ("${GCC_AR}" STREQUAL "GCC_AR-NOTFOUND" OR "${GCC_RANLIB}" STREQUAL "GCC_RANLIB-NOTFOUND")
-        message(WARNING "GCC specific binutils not found.")
+        message(WARNING "GCC specific binutils not found. In case of linker issues export env vars: AR=gcc-ar, NM=gcc-nm, RANLIB=gcc-ranlib")
       else()
         message(STATUS "Using GCC specific binutils for LTO:")
         message(STATUS " ${GCC_AR}")
@@ -282,7 +285,7 @@ endif()
 
 # Configuring compilers
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wuninitialized -Wunreachable-code -Wstrict-overflow=2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fPIC -fcolor-diagnostics")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wuninitialized -Wunreachable-code -Wstrict-overflow=2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fPIC -fcolor-diagnostics -ftemplate-depth=1024")
 elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
   set(COLOR_FLAG "-fdiagnostics-color=auto")
   check_cxx_compiler_flag("-fdiagnostics-color=auto" HAS_COLOR_FLAG)
@@ -290,7 +293,7 @@ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
     set(COLOR_FLAG "")
   endif()
   # using GCC
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wuninitialized -Wunreachable-code -Wstrict-overflow=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 ${COLOR_FLAG} -fPIC")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wuninitialized -Wunreachable-code -Wstrict-overflow=1 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 ${COLOR_FLAG} -fPIC -ftemplate-depth=1024")
   if(WIN32) # using mingw
     add_dependency_defines(-DWIN32)
     set(OPTIONAL_SOCKET_LIBS ws2_32 wsock32)
@@ -403,10 +406,6 @@ if(ENABLE_MASON)
   add_dependency_includes(${MASON_PACKAGE_lua_INCLUDE_DIRS})
   set(USED_LUA_LIBRARIES ${MASON_PACKAGE_lua_STATIC_LIBS})
 
-  mason_use(luabind_lua524 VERSION ${MASON_LUABIND_VERSION})
-  add_dependency_includes(${MASON_PACKAGE_luabind_lua524_INCLUDE_DIRS})
-  set(LUABIND_LIBRARY ${MASON_PACKAGE_luabind_lua524_STATIC_LIBS})
-
   mason_use(bzip2 VERSION ${MASON_BZIP2_VERSION})
   add_dependency_includes(${MASON_PACKAGE_bzip2_INCLUDE_DIRS})
   set(BZIP2_LIBRARIES ${MASON_PACKAGE_bzip2_STATIC_LIBS})
@@ -434,10 +433,6 @@ if(ENABLE_MASON)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LINKER_FLAGS}")
   set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINKER_FLAGS}")
 
-  if(BUILD_COMPONENTS)
-    message(FATAL_ERROR "BUILD_COMPONENTS is not supported with ENABLE_MASON")
-  endif()
-
   # current mason packages target -D_GLIBCXX_USE_CXX11_ABI=0
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 
@@ -447,18 +442,17 @@ if(ENABLE_MASON)
 
 else()
 
-  find_package(Boost 1.49.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+  find_package(Boost 1.54 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
   add_dependency_includes(${Boost_INCLUDE_DIRS})
+  if(WIN32 AND Boost_VERSION VERSION_LESS 106200)
+    message(FATAL_ERROR "Building with MSVC needs Boost 1.62 with CXX11_CONSTEXPR support")
+  endif()
 
   find_package(TBB REQUIRED)
   add_dependency_includes(${TBB_INCLUDE_DIR})
   if(WIN32 AND CMAKE_BUILD_TYPE MATCHES Debug)
     set(TBB_LIBRARIES ${TBB_DEBUG_LIBRARIES})
   endif()
-  find_package(Luabind REQUIRED)
-  add_dependency_includes(${LUABIND_INCLUDE_DIR})
-  set(USED_LUA_LIBRARIES ${LUA_LIBRARY})
-  add_dependency_includes(${LUA_INCLUDE_DIR})
 
   find_package(EXPAT REQUIRED)
   add_dependency_includes(${EXPAT_INCLUDE_DIRS})
@@ -469,9 +463,32 @@ else()
   find_package(BZip2 REQUIRED)
   add_dependency_includes(${BZIP2_INCLUDE_DIR})
 
-  if(BUILD_COMPONENTS)
-    find_package(GDAL)
-  endif()
+  FIND_PACKAGE(Lua 5.2 EXACT)
+  IF (LUA_FOUND)
+      MESSAGE(STATUS "Using Lua ${LUA_VERSION_STRING}")
+  ELSE()
+    FIND_PACKAGE(Lua 5.1 EXACT)
+    IF (LUA_FOUND)
+      MESSAGE(STATUS "Using Lua ${LUA_VERSION_STRING}")
+    ELSE()
+      # Now fall back to a lua verison without exact
+      # in case this cmake version also forces patch versions
+      FIND_PACKAGE(Lua 5.2)
+      IF (LUA_FOUND)
+          MESSAGE(STATUS "Using Lua ${LUA_VERSION_STRING}")
+      ELSE()
+        FIND_PACKAGE(Lua 5.1)
+        IF (LUA_FOUND)
+          MESSAGE(STATUS "Using Lua ${LUA_VERSION_STRING}")
+        ELSE()
+          MESSAGE(FATAL_ERROR "Lua 5.1 or 5.2 was not found.")
+        ENDIF()
+      ENDIF()
+    ENDIF()
+  ENDIF()
+
+  set(USED_LUA_LIBRARIES ${LUA_LIBRARIES})
+  add_dependency_includes(${LUA_INCLUDE_DIR})
 
   # add a target to generate API documentation with Doxygen
   find_package(Doxygen)
@@ -511,7 +528,6 @@ add_dependency_includes(${ZLIB_INCLUDE_DIRS})
 if(NOT WIN32 AND NOT Boost_USE_STATIC_LIBS)
   add_dependency_defines(-DBOOST_TEST_DYN_LINK)
 endif()
-
 
 if(NOT WIN32 AND NOT Boost_USE_STATIC_LIBS)
   add_dependency_defines(-DBOOST_TEST_DYN_LINK)
@@ -556,7 +572,6 @@ set(EXTRACTOR_LIBRARIES
     ${BOOST_BASE_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXPAT_LIBRARIES}
-    ${LUABIND_LIBRARY}
     ${USED_LUA_LIBRARIES}
     ${OSMIUM_LIBRARIES}
     ${STXXL_LIBRARY}
@@ -566,7 +581,6 @@ set(EXTRACTOR_LIBRARIES
 set(CONTRACTOR_LIBRARIES
     ${BOOST_BASE_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${LUABIND_LIBRARY}
     ${USED_LUA_LIBRARIES}
     ${STXXL_LIBRARY}
     ${TBB_LIBRARIES}
@@ -597,33 +611,25 @@ target_link_libraries(osrm_contract ${CONTRACTOR_LIBRARIES})
 target_link_libraries(osrm_extract ${EXTRACTOR_LIBRARIES})
 target_link_libraries(osrm_store ${STORAGE_LIBRARIES})
 
-if(BUILD_COMPONENTS)
-  if(GDAL_FOUND)
-    add_executable(osrm-components src/tools/components.cpp $<TARGET_OBJECTS:UTIL>)
-    target_link_libraries(osrm-components ${TBB_LIBRARIES})
-    include_directories(SYSTEM ${GDAL_INCLUDE_DIR})
-    target_link_libraries(osrm-components ${GDAL_LIBRARIES} ${BOOST_BASE_LIBRARIES})
-    install(TARGETS osrm-components DESTINATION bin)
-  else()
-    message(WARNING "libgdal and/or development headers not found")
-  endif()
-endif()
+# BUILD_COMPONENTS
+add_executable(osrm-components src/tools/components.cpp $<TARGET_OBJECTS:UTIL>)
+target_link_libraries(osrm-components ${TBB_LIBRARIES} ${BOOST_BASE_LIBRARIES})
+install(TARGETS osrm-components DESTINATION bin)
 
 if(BUILD_TOOLS)
   message(STATUS "Activating OSRM internal tools")
   add_executable(osrm-io-benchmark src/tools/io-benchmark.cpp $<TARGET_OBJECTS:UTIL>)
   target_link_libraries(osrm-io-benchmark ${BOOST_BASE_LIBRARIES})
-  add_executable(osrm-unlock-all src/tools/unlock_all_mutexes.cpp $<TARGET_OBJECTS:UTIL>)
-  target_link_libraries(osrm-unlock-all ${BOOST_BASE_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-  if(UNIX AND NOT APPLE)
-    target_link_libraries(osrm-unlock-all rt)
-  endif()
-  add_executable(osrm-springclean src/tools/springclean.cpp $<TARGET_OBJECTS:UTIL>)
-  target_link_libraries(osrm-springclean ${BOOST_BASE_LIBRARIES})
 
   install(TARGETS osrm-io-benchmark DESTINATION bin)
-  install(TARGETS osrm-unlock-all DESTINATION bin)
-  install(TARGETS osrm-springclean DESTINATION bin)
+
+  find_package(Shapefile) # package libshp-dev
+  if(Shapefile_FOUND)
+    add_executable(osrm-extract-conditionals src/tools/extract-conditionals.cpp $<TARGET_OBJECTS:UTIL>)
+    target_include_directories(osrm-extract-conditionals PRIVATE ${LIBSHAPEFILE_INCLUDE_DIR})
+    target_link_libraries(osrm-extract-conditionals ${OSMIUM_LIBRARIES} ${BOOST_BASE_LIBRARIES} ${Boost_PROGRAM_OPTIONS_LIBRARY} ${LIBSHAPEFILE_LIBRARY})
+    install(TARGETS osrm-extract-conditionals DESTINATION bin)
+  endif()
 endif()
 
 if (ENABLE_ASSERTIONS)
@@ -664,11 +670,16 @@ install(TARGETS osrm_extract DESTINATION lib)
 install(TARGETS osrm_contract DESTINATION lib)
 install(TARGETS osrm_store DESTINATION lib)
 
+
+# Install profiles and support library to /usr/local/share/osrm/profiles by default
+set(DefaultProfilesDir profiles)
+install(DIRECTORY ${DefaultProfilesDir} DESTINATION share/osrm)
+
 # Setup exporting variables for pkgconfig and subproject
 #
 
-if(BUILD_DEBIAN_PACKAGE)
-  include(CPackDebianConfig)
+if(BUILD_PACKAGE)
+  include(CPackConfig)
   include(CPack)
 endif()
 
@@ -706,7 +717,7 @@ JOIN("-I${DEPENDENCIES_INCLUDE_DIRS}" " -I" PKGCONFIG_OSRM_INCLUDE_FLAGS)
 JOIN("${ENGINE_LIBRARIES}" " " PKGCONFIG_OSRM_DEPENDENT_LIBRARIES)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/pkgconfig.in libosrm.pc @ONLY)
-install(FILES ${PROJECT_BINARY_DIR}/libosrm.pc DESTINATION lib/pkgconfig)
+install(FILES ${PROJECT_BINARY_DIR}/libosrm.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 # uninstall target
 configure_file(
@@ -735,3 +746,20 @@ if (ENABLE_FUZZING)
 
   add_subdirectory(fuzz)
 endif ()
+
+
+## add headers sanity check target that includes all headers independently
+set(check_headers_dir "${PROJECT_BINARY_DIR}/check-headers")
+file(GLOB_RECURSE headers_to_check
+  ${PROJECT_BINARY_DIR}/*.hpp
+  ${PROJECT_SOURCE_DIR}/include/*.hpp)
+foreach(header ${headers_to_check})
+  get_filename_component(filename ${header} NAME_WE)
+  set(filename "${check_headers_dir}/${filename}.cpp")
+  if (NOT EXISTS ${filename})
+    file(WRITE ${filename} "#include \"${header}\"\n")
+  endif()
+  list(APPEND sources ${filename})
+endforeach()
+add_library(check-headers STATIC EXCLUDE_FROM_ALL ${sources})
+set_target_properties(check-headers PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${check_headers_dir})
