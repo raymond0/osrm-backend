@@ -25,6 +25,7 @@
 #include <sstream>
 
 #include <tbb/tbb.h>
+#include <tbb/flow_graph.h>
 
 namespace
 {
