@@ -117,8 +117,7 @@ BOOST_AUTO_TEST_CASE(compute_angle)
     BOOST_CHECK_EQUAL(angle, 180);
 
     // Tiny changes below our calculation resolution
-    // This should be equivalent to having two points on the same
-    // spot.
+    // This should be equivalent to having two points on the same spot.
     first = Coordinate{FloatLongitude{0}, FloatLatitude{0}};
     middle = Coordinate{FloatLongitude{1}, FloatLatitude{0}};
     end = Coordinate{FloatLongitude{1 + std::numeric_limits<double>::epsilon()}, FloatLatitude{0}};
@@ -126,14 +125,12 @@ BOOST_AUTO_TEST_CASE(compute_angle)
     BOOST_CHECK_EQUAL(angle, 180);
 
     // Invalid values
-    /* TODO: Enable this when I figure out how to use BOOST_CHECK_THROW
-     *       and not have the whole test case fail...
-    first = Coordinate(FloatLongitude{0}, FloatLatitude{0});
-    middle = Coordinate(FloatLongitude{1}, FloatLatitude{0});
-    end = Coordinate(FloatLongitude(std::numeric_limits<double>::max()), FloatLatitude{0});
-    BOOST_CHECK_THROW( coordinate_calculation::computeAngle(first,middle,end),
-                       boost::numeric::positive_overflow);
-                       */
+    BOOST_CHECK_THROW(
+        coordinate_calculation::computeAngle(
+            Coordinate(FloatLongitude{0}, FloatLatitude{0}),
+            Coordinate(FloatLongitude{1}, FloatLatitude{0}),
+            Coordinate(FloatLongitude{std::numeric_limits<double>::max()}, FloatLatitude{0})),
+        boost::numeric::positive_overflow);
 }
 
 // Regression test for bug captured in #1347
@@ -309,6 +306,17 @@ BOOST_AUTO_TEST_CASE(circleCenter)
     c = Coordinate(FloatLongitude{-113.096419}, FloatLatitude{41.147258});
     result = coordinate_calculation::circleCenter(a, b, c);
     BOOST_CHECK(!result);
+}
+
+BOOST_AUTO_TEST_CASE(consistent_invalid_bearing_result)
+{
+    const auto pos1 = Coordinate(util::FloatLongitude{0.}, util::FloatLatitude{0.});
+    const auto pos2 = Coordinate(util::FloatLongitude{5.}, util::FloatLatitude{5.});
+    const auto pos3 = Coordinate(util::FloatLongitude{-5.}, util::FloatLatitude{-5.});
+
+    BOOST_CHECK_EQUAL(0., util::coordinate_calculation::bearing(pos1, pos1));
+    BOOST_CHECK_EQUAL(0., util::coordinate_calculation::bearing(pos2, pos2));
+    BOOST_CHECK_EQUAL(0., util::coordinate_calculation::bearing(pos3, pos3));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

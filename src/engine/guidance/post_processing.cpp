@@ -1073,7 +1073,8 @@ std::vector<RouteStep> collapseTurns(std::vector<RouteStep> steps)
         if (one_back_step.maneuver.instruction.type == TurnType::Sliproad)
         {
             if (current_step.maneuver.instruction.type == TurnType::Suppressed &&
-                compatible(one_back_step, current_step))
+                compatible(one_back_step, current_step) && current_step.intersections.size() == 1 &&
+                current_step.intersections.front().entry.size() == 2)
             {
                 // Traffic light on the sliproad, the road itself will be handled in the next
                 // iteration, when one-back-index again points to the sliproad.
@@ -1441,6 +1442,7 @@ void trimShortSegments(std::vector<RouteStep> &steps, LegGeometry &geometry)
         // This can happen if the last coordinate snaps to a node in the unpacked geometry
         geometry.locations.pop_back();
         geometry.annotations.pop_back();
+        geometry.osm_node_ids.pop_back();
         geometry.segment_offsets.back()--;
         // since the last geometry includes the location of arrival, the arrival instruction
         // geometry overlaps with the previous segment
