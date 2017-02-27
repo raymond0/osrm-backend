@@ -36,7 +36,8 @@ public:
     
 private:
     struct rect enclosingRect;
-    std::vector<std::vector<struct coord>> outerWays;
+    typedef std::pair<struct rect, std::vector<struct coord> > OuterWay;
+    std::vector<OuterWay> outerWays;
     std::vector< std::shared_ptr< Boundary > > childBoundaries;
 };
 

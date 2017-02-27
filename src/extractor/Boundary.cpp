@@ -64,7 +64,7 @@ Boundary::Boundary( std::ifstream &densityIn )
     
     bool first = true;
     
-    for ( int i = 0; i < nrOuterWays; i++ )
+    for ( unsigned i = 0; i < nrOuterWays; i++ )
     {
         unsigned wayHeader = 0;
         unsigned coordCount = 0;
@@ -80,13 +80,31 @@ Boundary::Boundary( std::ifstream &densityIn )
         
         std::vector<struct coord> outerWay;
         
-        for ( int j = 0; j < coordCount; j++ )
+        struct rect outerWayEnclosingRect;
+        
+        if ( coordCount < 3 )
+        {
+            printf( "ERROR: Boundary had %d coordinates\n", coordCount );
+            continue;
+        }
+        
+        for ( unsigned j = 0; j < coordCount; j++ )
         {
             struct coord newCoord;
             densityIn.read((char *) &newCoord.x, sizeof(newCoord.x));
             densityIn.read((char *) &newCoord.y, sizeof(newCoord.y));
             
             outerWay.emplace_back(newCoord);
+            
+            if ( j == 0 )
+            {
+                outerWayEnclosingRect.l.x = outerWayEnclosingRect.h.x = newCoord.x;
+                outerWayEnclosingRect.l.y = outerWayEnclosingRect.h.y = newCoord.y;
+            }
+            else
+            {
+                coord_extend_bbox(&outerWayEnclosingRect, newCoord);
+            }
             
             if ( first )
             {
@@ -100,10 +118,10 @@ Boundary::Boundary( std::ifstream &densityIn )
             }
         }
         
-        outerWays.emplace_back( outerWay );
+        outerWays.emplace_back( OuterWay( outerWayEnclosingRect, outerWay ) );
     }
     
-    for ( int i = 0; i < nrChildBoundaries; i++ )
+    for ( unsigned i = 0; i < nrChildBoundaries; i++ )
     {
         std::shared_ptr<Boundary> childBoundary ( new Boundary( densityIn ) );
 
@@ -112,7 +130,7 @@ Boundary::Boundary( std::ifstream &densityIn )
 }
 
 int
-bbox_contains_coord(struct rect *r, const struct coord *c)
+bbox_contains_coord(const struct rect *r, const struct coord *c)
 {
     if (r->h.x < c->x)
         return 0;
@@ -126,7 +144,7 @@ bbox_contains_coord(struct rect *r, const struct coord *c)
 }
 
 
-bool
+inline bool
 coord_equal( const coord &a, const coord &b)
 {
     return (a.x == b.x && a.y == b.y);
@@ -134,10 +152,10 @@ coord_equal( const coord &a, const coord &b)
 
 
 int
-geom_poly_point_inside(struct coord *cp, int count, const struct coord *c)
+geom_poly_point_inside(const struct coord *cp, int count, const struct coord *c)
 {
     int ret=0;
-    struct coord *last=cp+count-1;
+    const struct coord *last = cp + count - 1;
     while (cp < last)
     {
         if ((cp[0].y > c->y) != (cp[1].y > c->y) &&
@@ -156,15 +174,20 @@ bool Boundary::ContainsCoord( const struct coord *c )
     if ( ! bbox_contains_coord(&enclosingRect, c) )
         return false;
     
-    for ( auto outerWay : outerWays )
+    for ( const auto &outerWay : outerWays )
     {
-        for ( auto outerCoord : outerWay )
+        if ( ! bbox_contains_coord(&outerWay.first, c) )
+        {
+            continue;
+        }
+
+        for ( const auto &outerCoord : outerWay.second )
         {
             if ( coord_equal( outerCoord, *c ) )
                 return true;
         }
         
-        if ( geom_poly_point_inside(&outerWay[0], outerWay.size(), c) )
+        if ( geom_poly_point_inside(&outerWay.second[0], outerWay.second.size(), c) )
         {
             return true;
         }
@@ -186,7 +209,7 @@ bool Boundary::CoordinateIsInTown( const struct coord &c, const double townDensi
         return true;
     }
     
-    for ( auto childBoundary : childBoundaries )
+    for ( const auto &childBoundary : childBoundaries )
     {
         if ( childBoundary->CoordinateIsInTown( c, townDensity ) )
         {
