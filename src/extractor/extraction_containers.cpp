@@ -319,9 +319,7 @@ public:
     
     
 typedef std::shared_ptr<ProcessEdgeClassData> ProcessEdgeClassDataPtr;
-thread_local BoundaryList tlsBoundaryList;
-thread_local bool tlsBoundaryListValid = false;
-
+    
     
 class ProcessEdgeClassDataClass
 {
@@ -329,14 +327,7 @@ public:
     ProcessEdgeClassDataClass() { }
     void operator()( ProcessEdgeClassDataPtr item )
     {
-        if ( ! tlsBoundaryListValid )
-        {
-            std::cout << "Initializing TLS\n";
-            tlsBoundaryList = item->boundaryList;
-            tlsBoundaryListValid = true;
-        }
-        
-        bool result = tlsBoundaryList.FixedPointCoordinateIsInTown(item->coord);
+        bool result = item->boundaryList.FixedPointCoordinateIsInTown(item->coord);
         
         if ( result )
         {
