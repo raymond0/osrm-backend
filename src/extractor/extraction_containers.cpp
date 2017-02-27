@@ -325,7 +325,7 @@ class ProcessEdgeClassDataClass
 {
 public:
     ProcessEdgeClassDataClass() { }
-    int operator()( ProcessEdgeClassDataPtr item )
+    void operator()( ProcessEdgeClassDataPtr item )
     {
         bool result = item->boundaryList.FixedPointCoordinateIsInTown(item->coord);
         
@@ -350,8 +350,6 @@ public:
             std::cout << "Country: " << countryTemp << ", city: " << cityTemp <<
             ", " << countTemp << "/" << edgesQueued << " = " << percent << "%\n";
         }
-
-        return 0;
     }
 };
     
@@ -460,7 +458,7 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
 #ifdef EDGE_MULTI_THREAD
         graph g;
         broadcast_node<ProcessEdgeClassDataPtr> input(g);
-        function_node<ProcessEdgeClassDataPtr, int> processor( g, unlimited, ProcessEdgeClassDataClass());
+        function_node<ProcessEdgeClassDataPtr> processor( g, unlimited, ProcessEdgeClassDataClass());
         make_edge( input, processor );
 #endif
         
