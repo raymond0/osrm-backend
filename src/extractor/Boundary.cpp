@@ -165,6 +165,17 @@ geom_poly_point_inside(const struct coord *cp, int count, const struct coord *c)
         }
         cp++;
     }
+    
+    int lastIndex = count - 1;
+    if ( cp[0].x != cp[lastIndex].x || cp[0].y != cp[lastIndex].y )
+    {
+        if ((cp[lastIndex].y > c->y) != (cp[0].y > c->y) &&
+            c->x < ( (long long) cp[0].x - cp[lastIndex].x ) * ( c->y -cp[lastIndex].y ) / ( cp[0].y - cp[lastIndex].y ) + cp[lastIndex].x )
+        {
+            ret=!ret;
+        }
+    }
+
     return ret;
 }
 
