@@ -152,10 +152,16 @@ coord_equal( const coord &a, const coord &b)
 
 
 int
-geom_poly_point_inside(const struct coord *cp, int count, const struct coord *c)
+geom_poly_point_inside(const struct coord *coords, int count, const struct coord *c)
 {
+    if ( count < 3 )
+    {
+        return 0;
+    }
+    
     int ret=0;
-    const struct coord *last = cp + count - 1;
+    const struct coord *cp = coords;
+    const struct coord *last=cp+count-1;
     while (cp < last)
     {
         if ((cp[0].y > c->y) != (cp[1].y > c->y) &&
@@ -167,15 +173,15 @@ geom_poly_point_inside(const struct coord *cp, int count, const struct coord *c)
     }
     
     int lastIndex = count - 1;
-    if ( cp[0].x != cp[lastIndex].x || cp[0].y != cp[lastIndex].y )
+    if ( coords[0].x != coords[lastIndex].x || coords[0].y != coords[lastIndex].y )
     {
-        if ((cp[lastIndex].y > c->y) != (cp[0].y > c->y) &&
-            c->x < ( (long long) cp[0].x - cp[lastIndex].x ) * ( c->y -cp[lastIndex].y ) / ( cp[0].y - cp[lastIndex].y ) + cp[lastIndex].x )
+        if ((coords[lastIndex].y > c->y) != (coords[0].y > c->y) &&
+            c->x < ( (long long) coords[0].x - coords[lastIndex].x ) * ( c->y -coords[lastIndex].y ) / ( coords[0].y - coords[lastIndex].y ) + coords[lastIndex].x )
         {
             ret=!ret;
         }
     }
-
+    
     return ret;
 }
 
