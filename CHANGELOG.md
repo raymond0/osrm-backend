@@ -1,30 +1,45 @@
-# 5.5.4
-  - Changes from 5.5.3
+# 5.6.0
+  - Changes from 5.5
     - Bugfixes
-      - PR #3561 - added missing backwards speeds for cycleways in bicycle profile
-      - PR #3515 - adjusted number of `nodes` in `annotation`
-      - Ticket #3430 - Fix possible division by zero by clamping latitude to +/- 85.05
-      - PR #3555 - Fix an error that occurs when a road forks immediately after exiting a ferry
-      - PR #3575 - Don't emit invalid turn types for obvious turns at sliproads and roundabouts.
-
-# 5.5.3
-  - Changes from 5.5.2
-    - Bugfixes:
-      - PR #3504 - debug tiles were very slow to generate due to unnecessarily copying data in a hot loop.
-      - PR #3556 - fix an assertion in the walking profile triggered by tight spiral stairwells
-      - PR #3469 - don't assert when identical coordinates are supplied to some calculations - OSM data contains these, we shouldn't crash.
-    - Enhancements:
-      - backported 6ea9f9fdf19 - when anticipating upcoming lanes, consider how many lanes need to be crossed to get there.
-      - when using osrm-datastore, it will attempt to clean up locks if it crashes.
-
-# 5.5.2
-  - Changes from 5.5.1
-    - Revert smarter map-matching search radius.  The increased radius causes performance degredation when map-matching against non-car road networks with more edges.
+      - Fix #3475 removed an invalid `exit` field from the `arrive` maneuver
+      - Fix #3515 adjusted number of `nodes` in `annotation`
+      - Fix #3605 Fixed a bug that could lead to turns at the end of the road to be suppressed
+      - Fix #2844 handle up to 16777215 code units in OSM names
+    - Infrastructure
+      - Support building rpm packages.
+    - Guidance
+      - No longer emitting turns on ferries, if a ferry should use multiple docking locations
+    - Profiles
+      - Removed the `./profile.lua -> ./profiles/car.lua` symlink. Use specific profiles from the `profiles` directory.
+      - `properties` object has a new `weight_name` field, default value is "duration"
+      - `properties` object has a new `weight_precision` field that specifies a decimal precision of edge weights, default value 1
+      - In `way_function` the filed `forward_rate` and `backward_rate` of `ExtractionWay` can now be set.
+        They have the same interpretation for the way weight as `forward_speed` and `backward_speed` for the edge duration.
+        The unit of rate is meters per weight unit, so higher values will be prefered during routing.
+      - `turn_function` now does not return an integer but takes in a `ExtractionTurn` object and can modify the `weight` and `duration` fields
+      - `segment_function` now takes in a `ExtractionSegment` object and can modify `weight` and `duration` fields
+      - `properties.uturn_penalty` is deprecated. Set it in the `turn_function`. The turn type is exposed as `ExtractionTurn::direction_modifier`.
+      - `properties.traffic_light_penalty` is deprecated. Traffic light penalties now need to be set over in the turn function.
+         Each turn with a traffic light is marked with `ExtractionTurn::has_traffic_light = true`.
+      - Renamed the helper file `profiles/lib/directional.lua` to `profiles/lib/tags.lua` since it now provides more general tags parsing utility functions.
+      - The car and foot profiles now depend on the helper file `profiles/lib/handlers.lua`.
+    - Infrastructure
+      - Disabled link-time optimized (LTO) builds by default. Enable by passing `-DENABLE_LTO=ON` to `cmake` if you need the performance and know what you are doing.
+      - Datafile versioning is now based on OSRM semver values, rather than source code checksums.
+        Datafiles are compatible between patch levels, but incompatible between minor version or higher bumps.
+      - libOSRM now creates an own watcher thread then used in shared memory mode to listen for data updates
+    - Tools:
+      - Added osrm-extract-conditionals tool for checking conditional values in OSM data
+    - Trip Plugin
+      - Added a new feature that finds the optimal route given a list of waypoints, a source and a destination. This does not return a roundtrip and instead returns a one way optimal route from the fixed source to the destination points.
 
 # 5.5.1
   - Changes from 5.5.0
+    - API:
+      - Adds `generate_hints=true` (`true` by default) which lets user disable `Hint` generating in the response. Use if you don't need `Hint`s!
     - Bugfixes
-      - Fixes #3455 where a deadlock could occur if re-loading new data under heavy load with multiple consumers osrm-datastore
+      - Fix #3418 and ensure we only return bearings in the range 0-359 in API responses
+      - Fixed a bug that could lead to emitting false instructions for staying on a roundabout
 
 # 5.5.0
   - Changes from 5.4.0

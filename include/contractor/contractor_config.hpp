@@ -39,7 +39,7 @@ namespace contractor
 
 struct ContractorConfig
 {
-    ContractorConfig() : requested_num_threads(0) {}
+    ContractorConfig() : requested_num_threads(0), weight_multiplier(10.) {}
 
     // Infer the output names from the path of the .osrm file
     void UseDefaultOutputNames()
@@ -49,12 +49,15 @@ struct ContractorConfig
         graph_output_path = osrm_input_path.string() + ".hsgr";
         edge_based_graph_path = osrm_input_path.string() + ".ebg";
         edge_segment_lookup_path = osrm_input_path.string() + ".edge_segment_lookup";
-        edge_penalty_path = osrm_input_path.string() + ".edge_penalties";
+        turn_weight_penalties_path = osrm_input_path.string() + ".turn_weight_penalties";
+        turn_duration_penalties_path = osrm_input_path.string() + ".turn_duration_penalties";
+        turn_penalties_index_path = osrm_input_path.string() + ".turn_penalties_index";
         node_based_graph_path = osrm_input_path.string() + ".nodes";
         geometry_path = osrm_input_path.string() + ".geometry";
         rtree_leaf_path = osrm_input_path.string() + ".fileIndex";
         datasource_names_path = osrm_input_path.string() + ".datasource_names";
         datasource_indexes_path = osrm_input_path.string() + ".datasource_indexes";
+        profile_properties_path = osrm_input_path.string() + ".properties";
     }
 
     boost::filesystem::path config_file_path;
@@ -66,7 +69,9 @@ struct ContractorConfig
     std::string edge_based_graph_path;
 
     std::string edge_segment_lookup_path;
-    std::string edge_penalty_path;
+    std::string turn_weight_penalties_path;
+    std::string turn_duration_penalties_path;
+    std::string turn_penalties_index_path;
     std::string node_based_graph_path;
     std::string geometry_path;
     std::string rtree_leaf_path;
@@ -74,6 +79,7 @@ struct ContractorConfig
 
     unsigned requested_num_threads;
     double log_edge_updates_factor;
+    double weight_multiplier;
 
     // A percentage of vertices that will be contracted for the hierarchy.
     // Offers a trade-off between preprocessing and query time.
@@ -85,6 +91,7 @@ struct ContractorConfig
     std::vector<std::string> turn_penalty_lookup_paths;
     std::string datasource_indexes_path;
     std::string datasource_names_path;
+    std::string profile_properties_path;
 };
 }
 }

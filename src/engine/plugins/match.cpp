@@ -108,7 +108,7 @@ void filterCandidates(const std::vector<util::Coordinate> &coordinates,
     }
 }
 
-Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
+Status MatchPlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
                                   const api::MatchParameters &parameters,
                                   util::json::Object &json_result) const
 {
@@ -180,7 +180,7 @@ Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFaca
     }
 
     // call the actual map matching
-    SubMatchingList sub_matchings = map_matching(*facade,
+    SubMatchingList sub_matchings = map_matching(facade,
                                                  candidates_lists,
                                                  parameters.coordinates,
                                                  parameters.timestamps,
@@ -211,7 +211,7 @@ Status MatchPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFaca
         // bi-directional
         // phantom nodes for possible uturns
         shortest_path(
-            *facade, sub_routes[index].segment_end_coordinates, {false}, sub_routes[index]);
+            facade, sub_routes[index].segment_end_coordinates, {false}, sub_routes[index]);
         BOOST_ASSERT(sub_routes[index].shortest_path_length != INVALID_EDGE_WEIGHT);
     }
 

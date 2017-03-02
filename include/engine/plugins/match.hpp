@@ -33,14 +33,14 @@ class MatchPlugin : public BasePlugin
     {
     }
 
-    Status HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
+    Status HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
                          const api::MatchParameters &parameters,
                          util::json::Object &json_result) const;
 
   private:
     mutable SearchEngineData heaps;
-    mutable routing_algorithms::MapMatching<datafacade::BaseDataFacade> map_matching;
-    mutable routing_algorithms::ShortestPathRouting<datafacade::BaseDataFacade> shortest_path;
+    mutable routing_algorithms::MapMatching map_matching;
+    mutable routing_algorithms::ShortestPathRouting shortest_path;
     const int max_locations_map_matching;
 };
 }

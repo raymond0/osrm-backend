@@ -15,6 +15,14 @@
 #include "osrm/osrm.hpp"
 #include "osrm/status.hpp"
 
+namespace
+{
+osrm::util::Coordinate getZeroCoordinate()
+{
+    return {osrm::util::FloatLongitude{0}, osrm::util::FloatLatitude{0}};
+}
+}
+
 BOOST_AUTO_TEST_SUITE(limits)
 
 BOOST_AUTO_TEST_CASE(test_trip_limits)
@@ -32,9 +40,9 @@ BOOST_AUTO_TEST_CASE(test_trip_limits)
     OSRM osrm{config};
 
     TripParameters params;
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
 
     json::Object result;
 
@@ -62,9 +70,9 @@ BOOST_AUTO_TEST_CASE(test_route_limits)
     OSRM osrm{config};
 
     RouteParameters params;
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
 
     json::Object result;
 
@@ -92,9 +100,9 @@ BOOST_AUTO_TEST_CASE(test_table_limits)
     OSRM osrm{config};
 
     TableParameters params;
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
 
     json::Object result;
 
@@ -122,9 +130,9 @@ BOOST_AUTO_TEST_CASE(test_match_limits)
     OSRM osrm{config};
 
     MatchParameters params;
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
+    params.coordinates.emplace_back(getZeroCoordinate());
 
     json::Object result;
 
@@ -152,7 +160,7 @@ BOOST_AUTO_TEST_CASE(test_nearest_limits)
     OSRM osrm{config};
 
     NearestParameters params;
-    params.coordinates.emplace_back(util::FloatLongitude{}, util::FloatLatitude{});
+    params.coordinates.emplace_back(getZeroCoordinate());
     params.number_of_results = 10000;
 
     json::Object result;

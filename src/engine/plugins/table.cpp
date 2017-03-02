@@ -28,7 +28,7 @@ TablePlugin::TablePlugin(const int max_locations_distance_table)
 {
 }
 
-Status TablePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
+Status TablePlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
                                   const api::TableParameters &params,
                                   util::json::Object &result) const
 {
@@ -61,7 +61,7 @@ Status TablePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFaca
 
     auto snapped_phantoms = SnapPhantomNodes(GetPhantomNodes(*facade, params));
     auto result_table =
-        distance_table(*facade, snapped_phantoms, params.sources, params.destinations);
+        distance_table(facade, snapped_phantoms, params.sources, params.destinations);
 
     if (result_table.empty())
     {

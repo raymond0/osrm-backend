@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 
+#include "util/exception.hpp"
 #include "util/json_container.hpp"
 #include "util/json_renderer.hpp"
 #include "util/log.hpp"
@@ -46,7 +47,7 @@ class GeojsonLogger
     // cannot lock, is tooling for locked function
     static void output(bool first, const util::json::Array &array)
     {
-        for (const auto object : array.values)
+        for (const auto &object : array.values)
         {
             if (!first)
                 ofs << ",\n\t\t";

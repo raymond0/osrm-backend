@@ -1,7 +1,9 @@
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "util/bearing.hpp"
 #include "util/coordinate_calculation.hpp"
+#include "util/web_mercator.hpp"
 
 #include <osrm/coordinate.hpp>
 
@@ -260,7 +262,7 @@ BOOST_AUTO_TEST_CASE(circleCenter)
 
     auto result = coordinate_calculation::circleCenter(a, b, c);
     BOOST_CHECK(result);
-    BOOST_CHECK_EQUAL(*result, Coordinate(FloatLongitude{-100.000833}, FloatLatitude{10.000833}));
+    BOOST_CHECK_EQUAL(*result, Coordinate(FloatLongitude{-100.0008333}, FloatLatitude{10.0008333}));
 
     // Co-linear longitude
     a = Coordinate(FloatLongitude{-100.}, FloatLatitude{10.});
@@ -283,7 +285,7 @@ BOOST_AUTO_TEST_CASE(circleCenter)
     c = Coordinate(FloatLongitude{-112.096419}, FloatLatitude{41.147259});
     result = coordinate_calculation::circleCenter(a, b, c);
     BOOST_CHECK(result);
-    BOOST_CHECK_EQUAL(*result, Coordinate(FloatLongitude{-112.09642}, FloatLatitude{41.14707}));
+    BOOST_CHECK_EQUAL(*result, Coordinate(FloatLongitude{-112.09642}, FloatLatitude{41.1470705}));
 
     // Co-linear latitude, variation
     a = Coordinate(FloatLongitude{-112.096234}, FloatLatitude{41.147101});
@@ -291,7 +293,7 @@ BOOST_AUTO_TEST_CASE(circleCenter)
     c = Coordinate(FloatLongitude{-112.096419}, FloatLatitude{41.147259});
     result = coordinate_calculation::circleCenter(a, b, c);
     BOOST_CHECK(result);
-    BOOST_CHECK_EQUAL(*result, Coordinate(FloatLongitude{-112.096512}, FloatLatitude{41.146962}));
+    BOOST_CHECK_EQUAL(*result, Coordinate(FloatLongitude{-112.0965125}, FloatLatitude{41.1469622}));
 
     // Co-linear latitude, impossible to calculate
     a = Coordinate(FloatLongitude{-112.096234}, FloatLatitude{41.147259});
@@ -308,6 +310,72 @@ BOOST_AUTO_TEST_CASE(circleCenter)
     BOOST_CHECK(!result);
 }
 
+// For overflow issue #3483, introduced in 68ee4eab61548. Run with -fsanitize=integer.
+BOOST_AUTO_TEST_CASE(squaredEuclideanDistance)
+{
+    // Overflow happens when left hand side values are smaller than right hand side values,
+    // then `lhs - rhs` will be negative but stored in a uint64_t (wraps around).
+
+    Coordinate lhs(FloatLongitude{-180}, FloatLatitude{-90});
+    Coordinate rhs(FloatLongitude{180}, FloatLatitude{90});
+
+    const auto result = coordinate_calculation::squaredEuclideanDistance(lhs, rhs);
+
+    BOOST_CHECK_EQUAL(result, 162000000000000000ull);
+}
+
+BOOST_AUTO_TEST_CASE(vertical_regression)
+{
+    // check a vertical line for its bearing
+    std::vector<Coordinate> coordinates;
+    for (std::size_t i = 0; i < 100; ++i)
+        coordinates.push_back(Coordinate(FloatLongitude{0.0}, FloatLatitude{i / 100.0}));
+
+    const auto regression =
+        util::coordinate_calculation::leastSquareRegression(coordinates.begin(), coordinates.end());
+    const auto is_valid =
+        util::angularDeviation(
+            util::coordinate_calculation::bearing(regression.first, regression.second), 0) < 2;
+    BOOST_CHECK(is_valid);
+}
+
+BOOST_AUTO_TEST_CASE(sinus_curve)
+{
+    // create a full sinus curve, sampled in 3.6 degree
+    std::vector<Coordinate> coordinates;
+    for (std::size_t i = 0; i < 360; ++i)
+        coordinates.push_back(Coordinate(
+            FloatLongitude{i / 360.0},
+            FloatLatitude{sin(util::coordinate_calculation::detail::degToRad(i / 360.0))}));
+
+    const auto regression =
+        util::coordinate_calculation::leastSquareRegression(coordinates.begin(), coordinates.end());
+    const auto is_valid =
+        util::angularDeviation(
+            util::coordinate_calculation::bearing(regression.first, regression.second), 90) < 2;
+
+    BOOST_CHECK(is_valid);
+}
+
+BOOST_AUTO_TEST_CASE(parallel_lines_slight_offset)
+{
+    std::vector<Coordinate> coordinates_lhs;
+    for (std::size_t i = 0; i < 100; ++i)
+        coordinates_lhs.push_back(Coordinate(util::FloatLongitude{(50 - (rand() % 101)) / 100000.0},
+                                             util::FloatLatitude{i / 100000.0}));
+    std::vector<Coordinate> coordinates_rhs;
+    for (std::size_t i = 0; i < 100; ++i)
+        coordinates_rhs.push_back(
+            Coordinate(util::FloatLongitude{(150 - (rand() % 101)) / 100000.0},
+                       util::FloatLatitude{i / 100000.0}));
+
+    const auto are_parallel = util::coordinate_calculation::areParallel(coordinates_lhs.begin(),
+                                                                        coordinates_lhs.end(),
+                                                                        coordinates_rhs.begin(),
+                                                                        coordinates_rhs.end());
+    BOOST_CHECK(are_parallel);
+}
+
 BOOST_AUTO_TEST_CASE(consistent_invalid_bearing_result)
 {
     const auto pos1 = Coordinate(util::FloatLongitude{0.}, util::FloatLatitude{0.});
@@ -317,6 +385,24 @@ BOOST_AUTO_TEST_CASE(consistent_invalid_bearing_result)
     BOOST_CHECK_EQUAL(0., util::coordinate_calculation::bearing(pos1, pos1));
     BOOST_CHECK_EQUAL(0., util::coordinate_calculation::bearing(pos2, pos2));
     BOOST_CHECK_EQUAL(0., util::coordinate_calculation::bearing(pos3, pos3));
+}
+
+// Regression test for bug captured in #3516
+BOOST_AUTO_TEST_CASE(regression_test_3516)
+{
+    Coordinate u(FloatLongitude{-73.989687}, FloatLatitude{40.752288});
+    Coordinate v(FloatLongitude{-73.990134}, FloatLatitude{40.751658});
+    Coordinate q(FloatLongitude{-73.99039}, FloatLatitude{40.75171});
+
+    BOOST_CHECK_EQUAL(Coordinate{web_mercator::toWGS84(web_mercator::fromWGS84(u))}, u);
+    BOOST_CHECK_EQUAL(Coordinate{web_mercator::toWGS84(web_mercator::fromWGS84(v))}, v);
+
+    double ratio;
+    Coordinate nearest_location;
+    coordinate_calculation::perpendicularDistance(u, v, q, nearest_location, ratio);
+
+    BOOST_CHECK_EQUAL(ratio, 1.);
+    BOOST_CHECK_EQUAL(nearest_location, v);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

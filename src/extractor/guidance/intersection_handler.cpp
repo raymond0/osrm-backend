@@ -1,13 +1,18 @@
 #include "extractor/guidance/intersection_handler.hpp"
 #include "extractor/guidance/constants.hpp"
 
+#include "util/coordinate_calculation.hpp"
 #include "util/guidance/name_announcements.hpp"
 #include "util/log.hpp"
+
+#include "util/bearing.hpp"
+#include "util/coordinate_calculation.hpp"
 
 #include <algorithm>
 #include <cstddef>
 
 using EdgeData = osrm::util::NodeBasedDynamicGraph::EdgeData;
+using osrm::extractor::guidance::getTurnDirection;
 using osrm::util::angularDeviation;
 
 namespace osrm
@@ -37,6 +42,8 @@ IntersectionHandler::IntersectionHandler(const util::NodeBasedDynamicGraph &node
 {
 }
 
+// Inspects an intersection and a turn from via_edge onto road from the possible basic turn types
+// (OnRamp, Continue, Turn) find the suitable turn type
 TurnType::Enum IntersectionHandler::findBasicTurnType(const EdgeID via_edge,
                                                       const ConnectedRoad &road) const
 {
@@ -257,9 +264,13 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
     else
     {
         if (low_priority_left && !low_priority_right)
+        {
             left.instruction = {TurnType::Turn, DirectionModifier::SlightLeft};
+        }
         else
+        {
             left.instruction = {TurnType::Fork, DirectionModifier::SlightLeft};
+        }
     }
 
     // right side of fork
@@ -268,9 +279,13 @@ void IntersectionHandler::assignFork(const EdgeID via_edge,
     else
     {
         if (low_priority_right && !low_priority_left)
+        {
             right.instruction = {TurnType::Turn, DirectionModifier::SlightRight};
+        }
         else
+        {
             right.instruction = {TurnType::Fork, DirectionModifier::SlightRight};
+        }
     }
 }
 
@@ -339,8 +354,10 @@ void IntersectionHandler::assignTrivialTurns(const EdgeID via_eid,
 {
     for (std::size_t index = begin; index != end; ++index)
         if (intersection[index].entry_allowed)
+        {
             intersection[index].instruction = {findBasicTurnType(via_eid, intersection[index]),
                                                getTurnDirection(intersection[index].angle)};
+        }
 }
 
 bool IntersectionHandler::isThroughStreet(const std::size_t index,
@@ -395,19 +412,17 @@ IntersectionHandler::getNextIntersection(const NodeID at, const EdgeID via) cons
     // Starting at node `a` via edge `e0` the intersection generator returns the intersection at `c`
     // writing `tl` (traffic signal) node and the edge `e1` which has the intersection as target.
 
-    NodeID node = SPECIAL_NODEID;
-    EdgeID edge = SPECIAL_EDGEID;
-
-    std::tie(node, edge) = intersection_generator.SkipDegreeTwoNodes(at, via);
-    auto intersection = intersection_generator(node, edge);
-
+    const auto intersection_parameters = intersection_generator.SkipDegreeTwoNodes(at, via);
     // This should never happen, guard against nevertheless
-    if (node == SPECIAL_NODEID || edge == SPECIAL_EDGEID)
+    if (intersection_parameters.nid == SPECIAL_NODEID ||
+        intersection_parameters.via_eid == SPECIAL_EDGEID)
     {
         return boost::none;
     }
 
-    auto intersection_node = node_based_graph.GetTarget(edge);
+    auto intersection =
+        intersection_generator(intersection_parameters.nid, intersection_parameters.via_eid);
+    auto intersection_node = node_based_graph.GetTarget(intersection_parameters.via_eid);
 
     if (intersection.size() <= 2 || intersection.isTrafficSignalOrBarrier())
     {

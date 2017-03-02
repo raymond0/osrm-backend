@@ -164,20 +164,20 @@ module.exports = function () {
     };
 
     this.annotationList = (instructions) => {
-        function zip(list_1, list_2, list_3)
-        {
-            let tuples = [];
-            for (let i = 0; i <  list_1.length; ++i) {
-                tuples.push([list_1[i], list_2[i], list_3[i]]);
-            }
-            return tuples;
-        }
-        return instructions.legs.map(l => {return zip(l.annotation.duration, l.annotation.distance, l.annotation.datasources).map(p => { return p.join(':'); }).join(','); }).join(',');
-    };
+        if (!('annotation' in instructions.legs[0]))
+            return '';
 
-    this.OSMIDList = (instructions) => {
-        // OSM node IDs also come from the annotation list
-        return instructions.legs.map(l => l.annotation.nodes.map(n => n.toString()).join(',')).join(',');
+        var merged = {};
+        instructions.legs.map(l => {
+            Object.keys(l.annotation).forEach(a => {
+                if (!merged[a]) merged[a] = [];
+                merged[a].push(l.annotation[a].join(':'));
+            });
+        });
+        Object.keys(merged).map(a => {
+            merged[a] = merged[a].join(',');
+        });
+        return merged;
     };
 
     this.lanesList = (instructions) => {
@@ -249,5 +249,13 @@ module.exports = function () {
 
     this.distanceList = (instructions) => {
         return this.extractInstructionList(instructions, s => s.distance + 'm');
+    };
+
+    this.weightName = (instructions) => {
+        return instructions ? instructions.weight_name : '';
+    };
+
+    this.weightList = (instructions) => {
+        return this.extractInstructionList(instructions, s => s.weight);
     };
 };

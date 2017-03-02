@@ -132,11 +132,12 @@ int Extractor::run(ScriptingEnvironment &scripting_environment)
         }
         util::Log() << "Threads: " << number_of_threads;
 
-        ExtractionContainers extraction_containers;
-        auto extractor_callbacks = std::make_unique<ExtractorCallbacks>(extraction_containers);
-
         const osmium::io::File input_file(config.input_path.string());
-        osmium::io::Reader reader(input_file, osmium::io::read_meta::no);
+
+        osmium::io::Reader reader(
+            input_file,
+            (config.use_metadata ? osmium::io::read_meta::yes : osmium::io::read_meta::no));
+
         const osmium::io::Header header = reader.header();
 
         unsigned number_of_nodes = 0;
@@ -145,6 +146,10 @@ int Extractor::run(ScriptingEnvironment &scripting_environment)
 
         util::Log() << "Parsing in progress..";
         TIMER_START(parsing);
+
+        ExtractionContainers extraction_containers;
+        auto extractor_callbacks = std::make_unique<ExtractorCallbacks>(
+            extraction_containers, scripting_environment.GetProfileProperties());
 
         // setup raster sources
         scripting_environment.SetupSources();
@@ -175,10 +180,11 @@ int Extractor::run(ScriptingEnvironment &scripting_environment)
         // setup restriction parser
         const RestrictionParser restriction_parser(scripting_environment);
 
-        while (const osmium::memory::Buffer buffer = reader.read())
+        // create a vector of iterators into the buffer
+        for (std::vector<osmium::memory::Buffer::const_iterator> osm_elements;
+             const osmium::memory::Buffer buffer = reader.read();
+             osm_elements.clear())
         {
-            // create a vector of iterators into the buffer
-            std::vector<osmium::memory::Buffer::const_iterator> osm_elements;
             for (auto iter = std::begin(buffer), end = std::end(buffer); iter != end; ++iter)
             {
                 osm_elements.push_back(iter);
@@ -258,6 +264,7 @@ int Extractor::run(ScriptingEnvironment &scripting_environment)
         std::vector<bool> node_is_startpoint;
         std::vector<EdgeWeight> edge_based_node_weights;
         std::vector<QueryNode> internal_to_external_node_map;
+
         auto graph_size = BuildEdgeExpandedGraph(scripting_environment,
                                                  internal_to_external_node_map,
                                                  edge_based_node_list,
@@ -325,6 +332,7 @@ void Extractor::FindComponents(unsigned max_edge_id,
 {
     struct UncontractedEdgeData
     {
+        EdgeWeight duration;
     };
     struct InputEdge
     {
@@ -354,12 +362,12 @@ void Extractor::FindComponents(unsigned max_edge_id,
         BOOST_ASSERT(edge.target <= max_edge_id);
         if (edge.forward)
         {
-            edges.push_back({edge.source, edge.target, {}});
+            edges.push_back({edge.source, edge.target, {edge.duration}});
         }
 
         if (edge.backward)
         {
-            edges.push_back({edge.target, edge.source, {}});
+            edges.push_back({edge.target, edge.source, {edge.duration}});
         }
     }
 
@@ -498,7 +506,9 @@ Extractor::BuildEdgeExpandedGraph(ScriptingEnvironment &scripting_environment,
                                  config.edge_output_path,
                                  config.turn_lane_data_file_name,
                                  config.edge_segment_lookup_path,
-                                 config.edge_penalty_path,
+                                 config.turn_weight_penalties_path,
+                                 config.turn_duration_penalties_path,
+                                 config.turn_penalties_index_path,
                                  config.generate_edge_lookup);
 
     WriteTurnLaneData(config.turn_lane_descriptions_file_name);

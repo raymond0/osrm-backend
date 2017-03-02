@@ -60,7 +60,7 @@ inline bool isValidModifier(const guidance::StepManeuver maneuver)
             maneuver.instruction.direction_modifier != DirectionModifier::UTurn);
 }
 
-inline bool hasValidLanes(const guidance::Intersection &intersection)
+inline bool hasValidLanes(const guidance::IntermediateIntersection &intersection)
 {
     return intersection.lanes.lanes_in_turn > 0;
 }
@@ -72,7 +72,7 @@ std::string instructionTypeToString(const TurnType::Enum type)
     return turn_type_names[static_cast<std::size_t>(type)];
 }
 
-util::json::Array lanesFromIntersection(const guidance::Intersection &intersection)
+util::json::Array lanesFromIntersection(const guidance::IntermediateIntersection &intersection)
 {
     BOOST_ASSERT(intersection.lanes.lanes_in_turn >= 1);
     util::json::Array result;
@@ -192,24 +192,25 @@ util::json::Object makeStepManeuver(const guidance::StepManeuver &maneuver)
             detail::instructionModifierToString(maneuver.instruction.direction_modifier);
 
     step_maneuver.values["location"] = detail::coordinateToLonLat(maneuver.location);
-    step_maneuver.values["bearing_before"] = std::round(maneuver.bearing_before);
-    step_maneuver.values["bearing_after"] = std::round(maneuver.bearing_after);
+    step_maneuver.values["bearing_before"] = detail::roundAndClampBearing(maneuver.bearing_before);
+    step_maneuver.values["bearing_after"] = detail::roundAndClampBearing(maneuver.bearing_after);
     if (maneuver.exit != 0)
         step_maneuver.values["exit"] = maneuver.exit;
 
     return step_maneuver;
 }
 
-util::json::Object makeIntersection(const guidance::Intersection &intersection)
+util::json::Object makeIntersection(const guidance::IntermediateIntersection &intersection)
 {
     util::json::Object result;
     util::json::Array bearings;
     util::json::Array entry;
 
     bearings.values.reserve(intersection.bearings.size());
-    std::copy(intersection.bearings.begin(),
-              intersection.bearings.end(),
-              std::back_inserter(bearings.values));
+    std::transform(intersection.bearings.begin(),
+                   intersection.bearings.end(),
+                   std::back_inserter(bearings.values),
+                   detail::roundAndClampBearing);
 
     entry.values.reserve(intersection.entry.size());
     std::transform(intersection.entry.begin(),
@@ -225,9 +226,9 @@ util::json::Object makeIntersection(const guidance::Intersection &intersection)
     result.values["location"] = detail::coordinateToLonLat(intersection.location);
     result.values["bearings"] = bearings;
     result.values["entry"] = entry;
-    if (intersection.in != guidance::Intersection::NO_INDEX)
+    if (intersection.in != guidance::IntermediateIntersection::NO_INDEX)
         result.values["in"] = intersection.in;
-    if (intersection.out != guidance::Intersection::NO_INDEX)
+    if (intersection.out != guidance::IntermediateIntersection::NO_INDEX)
         result.values["out"] = intersection.out;
 
     if (detail::hasValidLanes(intersection))
@@ -240,7 +241,8 @@ util::json::Object makeRouteStep(guidance::RouteStep step, util::json::Value geo
 {
     util::json::Object route_step;
     route_step.values["distance"] = std::round(step.distance * 10) / 10.;
-    route_step.values["duration"] = std::round(step.duration * 10) / 10.;
+    route_step.values["duration"] = step.duration;
+    route_step.values["weight"] = step.weight;
     route_step.values["name"] = std::move(step.name);
     if (!step.ref.empty())
         route_step.values["ref"] = std::move(step.ref);
@@ -274,11 +276,14 @@ util::json::Object makeRouteStep(guidance::RouteStep step, util::json::Value geo
 
 util::json::Object makeRoute(const guidance::Route &route,
                              util::json::Array legs,
-                             boost::optional<util::json::Value> geometry)
+                             boost::optional<util::json::Value> geometry,
+                             const char *weight_name)
 {
     util::json::Object json_route;
-    json_route.values["distance"] = std::round(route.distance * 10) / 10.;
-    json_route.values["duration"] = std::round(route.duration * 10) / 10.;
+    json_route.values["distance"] = route.distance;
+    json_route.values["duration"] = route.duration;
+    json_route.values["weight"] = route.weight;
+    json_route.values["weight_name"] = weight_name;
     json_route.values["legs"] = std::move(legs);
     if (geometry)
     {
@@ -287,11 +292,17 @@ util::json::Object makeRoute(const guidance::Route &route,
     return json_route;
 }
 
-util::json::Object makeWaypoint(const util::Coordinate location, std::string name, const Hint &hint)
+util::json::Object makeWaypoint(const util::Coordinate location, std::string name)
 {
     util::json::Object waypoint;
     waypoint.values["location"] = detail::coordinateToLonLat(location);
     waypoint.values["name"] = std::move(name);
+    return waypoint;
+}
+
+util::json::Object makeWaypoint(const util::Coordinate location, std::string name, const Hint &hint)
+{
+    auto waypoint = makeWaypoint(location, name);
     waypoint.values["hint"] = hint.ToBase64();
     return waypoint;
 }
@@ -299,8 +310,9 @@ util::json::Object makeWaypoint(const util::Coordinate location, std::string nam
 util::json::Object makeRouteLeg(guidance::RouteLeg leg, util::json::Array steps)
 {
     util::json::Object route_leg;
-    route_leg.values["distance"] = std::round(leg.distance * 10) / 10.;
-    route_leg.values["duration"] = std::round(leg.duration * 10) / 10.;
+    route_leg.values["distance"] = leg.distance;
+    route_leg.values["duration"] = leg.duration;
+    route_leg.values["weight"] = leg.weight;
     route_leg.values["summary"] = std::move(leg.summary);
     route_leg.values["steps"] = std::move(steps);
     return route_leg;

@@ -35,7 +35,7 @@ return_code parseArguments(int argc, char *argv[], extractor::ExtractorConfig &e
     config_options.add_options()(
         "profile,p",
         boost::program_options::value<boost::filesystem::path>(&extractor_config.profile_path)
-            ->default_value("profile.lua"),
+            ->default_value("profiles/car.lua"),
         "Path to LUA routing profile")(
         "threads,t",
         boost::program_options::value<unsigned int>(&extractor_config.requested_num_threads)
@@ -53,7 +53,12 @@ return_code parseArguments(int argc, char *argv[], extractor::ExtractorConfig &e
         boost::program_options::value<unsigned int>(&extractor_config.small_component_size)
             ->default_value(1000),
         "Number of nodes required before a strongly-connected-componennt is considered big "
-        "(affects nearest neighbor snapping)");
+        "(affects nearest neighbor snapping)")(
+        "with-osm-metadata",
+        boost::program_options::value<bool>(&extractor_config.use_metadata)
+            ->implicit_value(true)
+            ->default_value(false),
+        "Use metada during osm parsing (This can affect the extraction performance).");
 
     // hidden options, will be allowed on command line, but will not be
     // shown to the user
@@ -156,7 +161,7 @@ int main(int argc, char *argv[]) try
     }
 
     // setup scripting environment
-    extractor::LuaScriptingEnvironment scripting_environment(
+    extractor::Sol2ScriptingEnvironment scripting_environment(
         extractor_config.profile_path.string().c_str());
     auto exitcode = extractor::Extractor(extractor_config).run(scripting_environment);
 
@@ -170,3 +175,10 @@ catch (const std::bad_alloc &e)
     util::Log(logERROR) << "Please provide more memory or consider using a larger swapfile";
     return EXIT_FAILURE;
 }
+#ifdef _WIN32
+catch (const std::exception &e)
+{
+    util::Log(logERROR) << "[exception] " << e.what() << std::endl;
+    return EXIT_FAILURE;
+}
+#endif

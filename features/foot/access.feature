@@ -103,3 +103,17 @@ Feature: Foot - Access tags on ways
             | bridleway |            | yes     |      |       |
             | bridleway | designated |         |      |       |
             | bridleway |            |         |      |       |
+
+    Scenario: Foot - a way with missing :forward tag
+        Then routability should be
+            | highway  | bicycle:backward | foot:backward | forw | backw |
+            | cycleway | designated       | designated    |      | x     |
+
+    Scenario: Foot - Access combinations
+        Then routability should be
+            | highway    | access     | bothw |
+            | primary    | permissive | x     |
+            | steps      | permissive | x     |
+            | footway    | permissive | x     |
+            | garbagetag | permissive | x     |
+

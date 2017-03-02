@@ -44,7 +44,10 @@ struct ExtractionWay
         city_backward_speed = -1;
         country_forward_speed = -1;
         country_backward_speed = -1;
+        forward_rate = -1;
+        backward_rate = -1;
         duration = -1;
+        weight = -1;
         roundabout = false;
         circular = false;
         is_startpoint = true;
@@ -57,6 +60,8 @@ struct ExtractionWay
         turn_lanes_forward.clear();
         turn_lanes_backward.clear();
         road_classification = guidance::RoadClassification();
+        backward_restricted = false;
+        forward_restricted = false;
     }
 
     // These accessors exists because it's not possible to take the address of a bitfield,
@@ -86,11 +91,18 @@ struct ExtractionWay
     }
     const char *GetTurnLanesBackward() const { return turn_lanes_backward.c_str(); }
 
+    // speed in km/h
     double city_forward_speed;
     double city_backward_speed;
     double country_forward_speed;
     double country_backward_speed;
+    // weight per meter
+    double forward_rate;
+    double backward_rate;
+    // duration of the whole way in both directions
     double duration;
+    // weight of the whole way in both directions
+    double weight;
     std::string name;
     std::string ref;
     std::string pronunciation;
@@ -100,6 +112,8 @@ struct ExtractionWay
     bool roundabout;
     bool circular;
     bool is_startpoint;
+    bool backward_restricted;
+    bool forward_restricted;
     TravelMode forward_travel_mode : 4;
     TravelMode backward_travel_mode : 4;
     guidance::RoadClassification road_classification;
