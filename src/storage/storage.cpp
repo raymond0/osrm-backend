@@ -8,7 +8,7 @@
 #include "extractor/travel_mode.hpp"
 #include "storage/io.hpp"
 #include "storage/serialization.hpp"
-#include "storage/shared_barriers.hpp"
+#include "storage/shared_barrier.hpp"
 #include "storage/shared_datatype.hpp"
 #include "storage/shared_memory.hpp"
 #include "engine/datafacade/datafacade_base.hpp"
@@ -30,11 +30,10 @@
 #endif
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/interprocess/exceptions.hpp>
-#include <boost/interprocess/sync/named_sharable_mutex.hpp>
-#include <boost/interprocess/sync/named_upgradable_mutex.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
-#include <boost/interprocess/sync/upgradable_lock.hpp>
 
 #include <cstdint>
 
@@ -56,66 +55,28 @@ using QueryGraph = util::StaticGraph<contractor::QueryEdge::EdgeData>;
 
 Storage::Storage(StorageConfig config_) : config(std::move(config_)) {}
 
-struct RegionsLayout
-{
-    SharedDataType current_layout_region;
-    SharedDataType current_data_region;
-    boost::interprocess::named_sharable_mutex &current_regions_mutex;
-    SharedDataType old_layout_region;
-    SharedDataType old_data_region;
-    boost::interprocess::named_sharable_mutex &old_regions_mutex;
-};
-
-RegionsLayout getRegionsLayout(SharedBarriers &barriers)
-{
-    if (SharedMemory::RegionExists(CURRENT_REGIONS))
-    {
-        auto shared_regions = makeSharedMemory(CURRENT_REGIONS);
-        const auto shared_timestamp =
-            static_cast<const SharedDataTimestamp *>(shared_regions->Ptr());
-        if (shared_timestamp->data == DATA_1)
-        {
-            BOOST_ASSERT(shared_timestamp->layout == LAYOUT_1);
-            return RegionsLayout{LAYOUT_1,
-                                 DATA_1,
-                                 barriers.regions_1_mutex,
-                                 LAYOUT_2,
-                                 DATA_2,
-                                 barriers.regions_2_mutex};
-        }
-
-        BOOST_ASSERT(shared_timestamp->data == DATA_2);
-        BOOST_ASSERT(shared_timestamp->layout == LAYOUT_2);
-    }
-
-    return RegionsLayout{
-        LAYOUT_2, DATA_2, barriers.regions_2_mutex, LAYOUT_1, DATA_1, barriers.regions_1_mutex};
-}
-
-Storage::ReturnCode Storage::Run(int max_wait)
+int Storage::Run(int max_wait)
 {
     BOOST_ASSERT_MSG(config.IsValid(), "Invalid storage config");
 
     util::LogPolicy::GetInstance().Unmute();
 
-    SharedBarriers barriers;
-
-    boost::interprocess::upgradable_lock<boost::interprocess::named_upgradable_mutex>
-        current_regions_lock(barriers.current_regions_mutex, boost::interprocess::defer_lock);
-    try
+    boost::filesystem::path lock_path =
+        boost::filesystem::temp_directory_path() / "osrm-datastore.lock";
+    if (!boost::filesystem::exists(lock_path))
     {
-        if (!current_regions_lock.try_lock())
-        {
-            util::Log(logWARNING) << "A data update is in progress";
-            return ReturnCode::Error;
-        }
+        boost::filesystem::ofstream ofs(lock_path);
     }
-    // hard unlock in case of any exception.
-    catch (boost::interprocess::lock_exception &ex)
+
+    boost::interprocess::file_lock file_lock(lock_path.string().c_str());
+    boost::interprocess::scoped_lock<boost::interprocess::file_lock> datastore_lock(
+        file_lock, boost::interprocess::defer_lock);
+
+    if (!datastore_lock.try_lock())
     {
-        barriers.current_regions_mutex.unlock_upgradable();
-        // make sure we exit here because this is bad
-        throw;
+        util::UnbufferedLog(logWARNING) << "Data update in progress, waiting until it finishes... ";
+        datastore_lock.lock();
+        util::UnbufferedLog(logWARNING) << "ok.";
     }
 
 #ifdef __linux__
@@ -127,122 +88,95 @@ Storage::ReturnCode Storage::Run(int max_wait)
     }
 #endif
 
-    auto regions_layout = getRegionsLayout(barriers);
-    const SharedDataType layout_region = regions_layout.old_layout_region;
-    const SharedDataType data_region = regions_layout.old_data_region;
+    // Get the next region ID and time stamp without locking shared barriers.
+    // Because of datastore_lock the only write operation can occur sequentially later.
+    SharedBarrier barrier(boost::interprocess::open_or_create);
+    auto in_use_region = barrier.GetRegion();
+    auto next_region =
+        in_use_region == REGION_2 || in_use_region == REGION_NONE ? REGION_1 : REGION_2;
 
-    if (max_wait > 0)
+    // ensure that the shared memory region we want to write to is really removed
+    // this is only needef for failure recovery because we actually wait for all clients
+    // to detach at the end of the function
+    if (storage::SharedMemory::RegionExists(next_region))
     {
-        util::Log() << "Waiting for " << max_wait
-                    << " second for all queries on the old dataset to finish:";
+        util::Log(logWARNING) << "Old shared memory region " << regionToString(next_region)
+                              << " still exists.";
+        util::UnbufferedLog() << "Retrying removal... ";
+        storage::SharedMemory::Remove(next_region);
+        util::UnbufferedLog() << "ok.";
     }
-    else
-    {
-        util::Log() << "Waiting for all queries on the old dataset to finish:";
-    }
 
-    boost::interprocess::scoped_lock<boost::interprocess::named_sharable_mutex> regions_lock(
-        regions_layout.old_regions_mutex, boost::interprocess::defer_lock);
+    util::Log() << "Loading data into " << regionToString(next_region);
 
-    if (max_wait > 0)
-    {
-        if (!regions_lock.timed_lock(boost::posix_time::microsec_clock::universal_time() +
-                                     boost::posix_time::seconds(max_wait)))
+    // Populate a memory layout into stack memory
+    DataLayout layout;
+    PopulateLayout(layout);
+
+    // Allocate shared memory block
+    auto regions_size = sizeof(layout) + layout.GetSizeOfLayout();
+    util::Log() << "Allocating shared memory of " << regions_size << " bytes";
+    auto data_memory = makeSharedMemory(next_region, regions_size);
+
+    // Copy memory layout to shared memory and populate data
+    char *shared_memory_ptr = static_cast<char *>(data_memory->Ptr());
+    memcpy(shared_memory_ptr, &layout, sizeof(layout));
+    PopulateData(layout, shared_memory_ptr + sizeof(layout));
+
+    { // Lock for write access shared region mutex
+        boost::interprocess::scoped_lock<SharedBarrier::mutex_type> lock(
+            barrier.GetMutex(), boost::interprocess::defer_lock);
+
+        if (max_wait >= 0)
         {
-            util::Log(logWARNING) << "Queries did not finish in " << max_wait
-                                  << " seconds. Claiming the lock by force.";
-            // WARNING: if queries are still using the old dataset they might crash
-            if (regions_layout.old_layout_region == LAYOUT_1)
+            if (!lock.timed_lock(boost::posix_time::microsec_clock::universal_time() +
+                                 boost::posix_time::seconds(max_wait)))
             {
-                BOOST_ASSERT(regions_layout.old_data_region == DATA_1);
-                barriers.resetRegions1();
-            }
-            else
-            {
-                BOOST_ASSERT(regions_layout.old_layout_region == LAYOUT_2);
-                BOOST_ASSERT(regions_layout.old_data_region == DATA_2);
-                barriers.resetRegions2();
-            }
-
-            return ReturnCode::Retry;
-        }
-    }
-    else
-    {
-        regions_lock.lock();
-    }
-    util::Log() << "Ok.";
-
-    // since we can't change the size of a shared memory regions we delete and reallocate
-    if (SharedMemory::RegionExists(layout_region) && !SharedMemory::Remove(layout_region))
-    {
-        throw util::exception("Could not remove shared memory region " +
-                              regionToString(layout_region) + SOURCE_REF);
-    }
-    if (SharedMemory::RegionExists(data_region) && !SharedMemory::Remove(data_region))
-    {
-        throw util::exception("Could not remove shared memory region " +
-                              regionToString(data_region) + SOURCE_REF);
-    }
-
-    // Allocate a memory layout in shared memory
-    auto layout_memory = makeSharedMemory(layout_region, sizeof(DataLayout), true);
-    auto shared_layout_ptr = new (layout_memory->Ptr()) DataLayout();
-
-    PopulateLayout(*shared_layout_ptr);
-
-    // allocate shared memory block
-    util::Log() << "allocating shared memory of " << shared_layout_ptr->GetSizeOfLayout()
-                << " bytes";
-    auto shared_memory = makeSharedMemory(data_region, shared_layout_ptr->GetSizeOfLayout(), true);
-    char *shared_memory_ptr = static_cast<char *>(shared_memory->Ptr());
-
-    PopulateData(*shared_layout_ptr, shared_memory_ptr);
-
-    auto data_type_memory = makeSharedMemory(CURRENT_REGIONS, sizeof(SharedDataTimestamp), true);
-    SharedDataTimestamp *data_timestamp_ptr =
-        static_cast<SharedDataTimestamp *>(data_type_memory->Ptr());
-
-    {
-
-        boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex>
-            current_regions_exclusive_lock;
-
-        if (max_wait > 0)
-        {
-            util::Log() << "Waiting for " << max_wait << " seconds to write new dataset timestamp";
-            auto end_time = boost::posix_time::microsec_clock::universal_time() +
-                            boost::posix_time::seconds(max_wait);
-            current_regions_exclusive_lock =
-                boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex>(
-                    std::move(current_regions_lock), end_time);
-
-            if (!current_regions_exclusive_lock.owns())
-            {
-                util::Log(logWARNING) << "Aquiring the lock timed out after " << max_wait
-                                      << " seconds. Claiming the lock by force.";
-                current_regions_lock.unlock();
-                current_regions_lock.release();
-                storage::SharedBarriers::resetCurrentRegions();
-                return ReturnCode::Retry;
+                util::Log(logWARNING)
+                    << "Could not aquire current region lock after " << max_wait
+                    << " seconds. Removing locked block and creating a new one. All currently "
+                       "attached processes will not receive notifications and must be restarted";
+                SharedBarrier::Remove();
+                in_use_region = REGION_NONE;
+                barrier = SharedBarrier(boost::interprocess::open_or_create);
             }
         }
         else
         {
-            util::Log() << "Waiting to write new dataset timestamp";
-            current_regions_exclusive_lock =
-                boost::interprocess::scoped_lock<boost::interprocess::named_upgradable_mutex>(
-                    std::move(current_regions_lock));
+            lock.lock();
         }
 
-        util::Log() << "Ok.";
-        data_timestamp_ptr->layout = layout_region;
-        data_timestamp_ptr->data = data_region;
-        data_timestamp_ptr->timestamp += 1;
+        // Update the current region ID and timestamp
+        barrier.SetRegion(next_region);
     }
-    util::Log() << "All data loaded.";
 
-    return ReturnCode::Ok;
+    util::Log() << "All data loaded. Notify all client about new data in "
+                << regionToString(barrier.GetRegion()) << " with timestamp "
+                << barrier.GetTimestamp();
+    barrier.NotifyAll();
+
+    // SHMCTL(2): Mark the segment to be destroyed. The segment will actually be destroyed
+    // only after the last process detaches it.
+    if (in_use_region != REGION_NONE && storage::SharedMemory::RegionExists(in_use_region))
+    {
+        util::UnbufferedLog() << "Marking old shared memory region "
+                              << regionToString(in_use_region) << " for removal... ";
+
+        // aquire a handle for the old shared memory region before we mark it for deletion
+        // we will need this to wait for all users to detach
+        auto in_use_shared_memory = makeSharedMemory(in_use_region);
+
+        storage::SharedMemory::Remove(in_use_region);
+        util::UnbufferedLog() << "ok.";
+
+        util::UnbufferedLog() << "Waiting for clients to detach... ";
+        in_use_shared_memory->WaitForDetach();
+        util::UnbufferedLog() << " ok.";
+    }
+
+    util::Log() << "All clients switched.";
+
+    return EXIT_SUCCESS;
 }
 
 /**
@@ -260,19 +194,10 @@ void Storage::PopulateLayout(DataLayout &layout)
     }
 
     {
-        // collect number of elements to store in shared memory object
         util::Log() << "load names from: " << config.names_data_path;
         // number of entries in name index
         io::FileReader name_file(config.names_data_path, io::FileReader::HasNoFingerprint);
-
-        const auto name_blocks = name_file.ReadElementCount32();
-        layout.SetBlockSize<unsigned>(DataLayout::NAME_OFFSETS, name_blocks);
-        layout.SetBlockSize<typename util::RangeTable<16, true>::BlockT>(DataLayout::NAME_BLOCKS,
-                                                                         name_blocks);
-        BOOST_ASSERT_MSG(0 != name_blocks, "name file broken");
-
-        const auto number_of_chars = name_file.ReadElementCount32();
-        layout.SetBlockSize<char>(DataLayout::NAME_CHAR_LIST, number_of_chars);
+        layout.SetBlockSize<char>(DataLayout::NAME_CHAR_DATA, name_file.GetSize());
     }
 
     {
@@ -308,7 +233,7 @@ void Storage::PopulateLayout(DataLayout &layout)
     }
 
     {
-        io::FileReader hsgr_file(config.hsgr_data_path, io::FileReader::HasNoFingerprint);
+        io::FileReader hsgr_file(config.hsgr_data_path, io::FileReader::VerifyFingerprint);
 
         const auto hsgr_header = serialization::readHSGRHeader(hsgr_file);
         layout.SetBlockSize<unsigned>(DataLayout::HSGR_CHECKSUM, 1);
@@ -346,6 +271,22 @@ void Storage::PopulateLayout(DataLayout &layout)
         layout.SetBlockSize<unsigned>(DataLayout::CORE_MARKER, number_of_core_markers);
     }
 
+    // load turn weight penalties
+    {
+        io::FileReader turn_weight_penalties_file(config.turn_weight_penalties_path,
+                                                  io::FileReader::HasNoFingerprint);
+        const auto number_of_penalties = turn_weight_penalties_file.ReadElementCount64();
+        layout.SetBlockSize<TurnPenalty>(DataLayout::TURN_WEIGHT_PENALTIES, number_of_penalties);
+    }
+
+    // load turn duration penalties
+    {
+        io::FileReader turn_duration_penalties_file(config.turn_duration_penalties_path,
+                                                    io::FileReader::HasNoFingerprint);
+        const auto number_of_penalties = turn_duration_penalties_file.ReadElementCount64();
+        layout.SetBlockSize<TurnPenalty>(DataLayout::TURN_DURATION_PENALTIES, number_of_penalties);
+    }
+
     // load coordinate size
     {
         io::FileReader node_file(config.nodes_data_path, io::FileReader::HasNoFingerprint);
@@ -373,6 +314,10 @@ void Storage::PopulateLayout(DataLayout &layout)
         layout.SetBlockSize<EdgeWeight>(DataLayout::GEOMETRIES_FWD_WEIGHT_LIST,
                                         number_of_compressed_geometries);
         layout.SetBlockSize<EdgeWeight>(DataLayout::GEOMETRIES_REV_WEIGHT_LIST,
+                                        number_of_compressed_geometries);
+        layout.SetBlockSize<EdgeWeight>(DataLayout::GEOMETRIES_FWD_DURATION_LIST,
+                                        number_of_compressed_geometries);
+        layout.SetBlockSize<EdgeWeight>(DataLayout::GEOMETRIES_REV_DURATION_LIST,
                                         number_of_compressed_geometries);
     }
 
@@ -455,7 +400,7 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
 
     // Load the HSGR file
     {
-        io::FileReader hsgr_file(config.hsgr_data_path, io::FileReader::HasNoFingerprint);
+        io::FileReader hsgr_file(config.hsgr_data_path, io::FileReader::VerifyFingerprint);
         auto hsgr_header = serialization::readHSGRHeader(hsgr_file);
         unsigned *checksum_ptr =
             layout.GetBlockPtr<unsigned, true>(memory_ptr, DataLayout::HSGR_CHECKSUM);
@@ -497,35 +442,13 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
     // Name data
     {
         io::FileReader name_file(config.names_data_path, io::FileReader::HasNoFingerprint);
-        const auto name_blocks_count = name_file.ReadElementCount32();
-        name_file.Skip<std::uint32_t>(1); // name_char_list_count
+        std::size_t name_file_size = name_file.GetSize();
 
-        BOOST_ASSERT(name_blocks_count * sizeof(unsigned) ==
-                     layout.GetBlockSize(DataLayout::NAME_OFFSETS));
-        BOOST_ASSERT(name_blocks_count * sizeof(typename util::RangeTable<16, true>::BlockT) ==
-                     layout.GetBlockSize(DataLayout::NAME_BLOCKS));
-
-        // Loading street names
-        const auto name_offsets_ptr =
-            layout.GetBlockPtr<unsigned, true>(memory_ptr, DataLayout::NAME_OFFSETS);
-        name_file.ReadInto(name_offsets_ptr, name_blocks_count);
-
-        const auto name_blocks_ptr =
-            layout.GetBlockPtr<unsigned, true>(memory_ptr, DataLayout::NAME_BLOCKS);
-        name_file.ReadInto(reinterpret_cast<char *>(name_blocks_ptr),
-                           layout.GetBlockSize(DataLayout::NAME_BLOCKS));
-
-        // The file format contains the element count a second time.  Don't know why,
-        // but we need to read it here to progress the file pointer to the correct spot
-        const auto temp_count = name_file.ReadElementCount32();
-
+        BOOST_ASSERT(name_file_size == layout.GetBlockSize(DataLayout::NAME_CHAR_DATA));
         const auto name_char_ptr =
-            layout.GetBlockPtr<char, true>(memory_ptr, DataLayout::NAME_CHAR_LIST);
+            layout.GetBlockPtr<char, true>(memory_ptr, DataLayout::NAME_CHAR_DATA);
 
-        BOOST_ASSERT_MSG(temp_count == layout.GetBlockSize(DataLayout::NAME_CHAR_LIST),
-                         "Name file corrupted!");
-
-        name_file.ReadInto(name_char_ptr, temp_count);
+        name_file.ReadInto<char>(name_char_ptr, name_file_size);
     }
 
     // Turn lane data
@@ -649,6 +572,18 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
         BOOST_ASSERT(geometry_node_lists_count ==
                      layout.num_entries[DataLayout::GEOMETRIES_REV_WEIGHT_LIST]);
         geometry_input_file.ReadInto(geometries_rev_weight_list_ptr, geometry_node_lists_count);
+
+        const auto geometries_fwd_duration_list_ptr = layout.GetBlockPtr<EdgeWeight, true>(
+            memory_ptr, DataLayout::GEOMETRIES_FWD_DURATION_LIST);
+        BOOST_ASSERT(geometry_node_lists_count ==
+                     layout.num_entries[DataLayout::GEOMETRIES_FWD_DURATION_LIST]);
+        geometry_input_file.ReadInto(geometries_fwd_duration_list_ptr, geometry_node_lists_count);
+
+        const auto geometries_rev_duration_list_ptr = layout.GetBlockPtr<EdgeWeight, true>(
+            memory_ptr, DataLayout::GEOMETRIES_REV_DURATION_LIST);
+        BOOST_ASSERT(geometry_node_lists_count ==
+                     layout.num_entries[DataLayout::GEOMETRIES_REV_DURATION_LIST]);
+        geometry_input_file.ReadInto(geometries_rev_duration_list_ptr, geometry_node_lists_count);
     }
 
     {
@@ -731,6 +666,26 @@ void Storage::PopulateData(const DataLayout &layout, char *memory_ptr)
                                  coordinates_ptr,
                                  osmnodeid_list,
                                  layout.num_entries[DataLayout::COORDINATE_LIST]);
+    }
+
+    // load turn weight penalties
+    {
+        io::FileReader turn_weight_penalties_file(config.turn_weight_penalties_path,
+                                                  io::FileReader::HasNoFingerprint);
+        const auto number_of_penalties = turn_weight_penalties_file.ReadElementCount64();
+        const auto turn_weight_penalties_ptr =
+            layout.GetBlockPtr<TurnPenalty, true>(memory_ptr, DataLayout::TURN_WEIGHT_PENALTIES);
+        turn_weight_penalties_file.ReadInto(turn_weight_penalties_ptr, number_of_penalties);
+    }
+
+    // load turn duration penalties
+    {
+        io::FileReader turn_duration_penalties_file(config.turn_duration_penalties_path,
+                                                    io::FileReader::HasNoFingerprint);
+        const auto number_of_penalties = turn_duration_penalties_file.ReadElementCount64();
+        const auto turn_duration_penalties_ptr =
+            layout.GetBlockPtr<TurnPenalty, true>(memory_ptr, DataLayout::TURN_DURATION_PENALTIES);
+        turn_duration_penalties_file.ReadInto(turn_duration_penalties_ptr, number_of_penalties);
     }
 
     // store timestamp

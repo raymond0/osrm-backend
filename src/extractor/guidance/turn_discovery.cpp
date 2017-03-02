@@ -1,5 +1,6 @@
 #include "extractor/guidance/turn_discovery.hpp"
 #include "extractor/guidance/constants.hpp"
+#include "util/bearing.hpp"
 #include "util/coordinate_calculation.hpp"
 
 using osrm::util::angularDeviation;
@@ -43,16 +44,20 @@ bool findPreviousIntersection(const NodeID node_v,
     const constexpr double COMBINE_DISTANCE_CUTOFF = 30;
 
     const auto coordinate_extractor = intersection_generator.GetCoordinateExtractor();
-    const auto via_edge_length = util::coordinate_calculation::getLength(
-        coordinate_extractor.GetForwardCoordinatesAlongRoad(node_v, via_edge),
-        &util::coordinate_calculation::haversineDistance);
+    const auto coordinates_along_via_edge =
+        coordinate_extractor.GetForwardCoordinatesAlongRoad(node_v, via_edge);
+    const auto via_edge_length =
+        util::coordinate_calculation::getLength(coordinates_along_via_edge.begin(),
+                                                coordinates_along_via_edge.end(),
+                                                &util::coordinate_calculation::haversineDistance);
 
     // we check if via-edge is too short. In this case the previous turn cannot influence the turn
     // at via_edge and the intersection at NODE_W
     if (via_edge_length > COMBINE_DISTANCE_CUTOFF)
         return false;
 
-    // Node -> Via_Edge -> Intersection[0 == UTURN] -> reverse_of(via_edge) -> Intersection at node
+    // Node -> Via_Edge -> Intersection[0 == UTURN] -> reverse_of(via_edge) -> Intersection at
+    // node
     // (looking at the reverse direction).
     const auto node_w = node_based_graph.GetTarget(via_edge);
     const auto u_turn_at_node_w = intersection[0].eid;

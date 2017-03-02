@@ -35,7 +35,7 @@ module.exports = function () {
                     if (err) return cb(err);
                     if (body && body.length) {
                         let destinations, pronunciations, instructions, refs, bearings, turns, modes, times,
-                            distances, summary, intersections, lanes, locations;
+                            distances, summary, intersections, lanes, locations, annotation, weight_name, weights;
 
                         let json = JSON.parse(body);
 
@@ -55,6 +55,9 @@ module.exports = function () {
                             lanes = this.lanesList(json.routes[0]);
                             summary = this.summary(json.routes[0]);
                             locations = this.locations(json.routes[0]);
+                            annotation = this.annotationList(json.routes[0]);
+                            weight_name = this.weightName(json.routes[0]);
+                            weights = this.weightList(json.routes[0]);
                         }
 
                         if (headers.has('status')) {
@@ -89,7 +92,8 @@ module.exports = function () {
                             }
 
                             var distance = hasRoute && json.routes[0].distance,
-                                time = hasRoute && json.routes[0].duration;
+                                time = hasRoute && json.routes[0].duration,
+                                weight = hasRoute && json.routes[0].weight;
 
                             if (headers.has('distance')) {
                                 if (row.distance.length) {
@@ -98,6 +102,16 @@ module.exports = function () {
                                     got.distance = instructions ? util.format('%dm', distance) : '';
                                 } else {
                                     got.distance = '';
+                                }
+                            }
+
+                            if (headers.has('weight')) {
+                                if (row.weight.length) {
+                                    if (!row.weight.match(/[\d\.]+/))
+                                        return cb(new Error('*** Weight must be specified as a numeric value. (ex: 8)'));
+                                    got.weight = instructions ? util.format('%d', weight) : '';
+                                } else {
+                                    got.weight = '';
                                 }
                             }
 
@@ -130,6 +144,20 @@ module.exports = function () {
                                 got.locations = (locations || '').trim();
                             }
 
+                            // if header matches 'a:*', parse out the values for *
+                            // and return in that header
+                            headers.forEach((k) => {
+                                let whitelist = ['duration', 'distance', 'datasources', 'nodes', 'weight', 'speed'];
+                                if (k.match(/^a:/)) {
+                                    let a_type = k.slice(2);
+                                    if (whitelist.indexOf(a_type) == -1)
+                                        return cb(new Error('Unrecognized annotation field', a_type));
+                                    if (!annotation[a_type])
+                                        return cb(new Error('Annotation not found in response', a_type));
+                                    got[k] = annotation[a_type];
+                                }
+                            });
+
                             var putValue = (key, value) => {
                                 if (headers.has(key)) got[key] = instructions ? value : '';
                             };
@@ -142,6 +170,9 @@ module.exports = function () {
                             putValue('distances', distances);
                             putValue('pronunciations', pronunciations);
                             putValue('destinations', destinations);
+                            putValue('weight_name', weight_name);
+                            putValue('weights', weights);
+                            putValue('weight', weight);
                         }
 
                         for (var key in row) {

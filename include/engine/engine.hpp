@@ -1,7 +1,6 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
 
-#include "storage/shared_barriers.hpp"
 #include "engine/api/match_parameters.hpp"
 #include "engine/api/nearest_parameters.hpp"
 #include "engine/api/route_parameters.hpp"
@@ -9,6 +8,7 @@
 #include "engine/api/tile_parameters.hpp"
 #include "engine/api/trip_parameters.hpp"
 #include "engine/data_watchdog.hpp"
+#include "engine/datafacade/contiguous_block_allocator.hpp"
 #include "engine/datafacade/datafacade_base.hpp"
 #include "engine/engine_config.hpp"
 #include "engine/plugins/match.hpp"
@@ -24,7 +24,6 @@
 #include "util/json_container.hpp"
 
 #include <memory>
-#include <mutex>
 #include <string>
 
 namespace osrm
@@ -52,9 +51,6 @@ class Engine final
     Status Tile(const api::TileParameters &parameters, std::string &result) const;
 
   private:
-    std::unique_ptr<storage::SharedBarriers> lock;
-    std::unique_ptr<DataWatchdog> watchdog;
-
     const plugins::ViaRoutePlugin route_plugin;
     const plugins::TablePlugin table_plugin;
     const plugins::NearestPlugin nearest_plugin;
@@ -65,7 +61,7 @@ class Engine final
 
     // note in case of shared memory this will be empty, since the watchdog
     // will provide us with the up-to-date facade
-    std::shared_ptr<datafacade::BaseDataFacade> immutable_data_facade;
+    std::shared_ptr<const datafacade::BaseDataFacade> immutable_data_facade;
 };
 }
 }

@@ -768,7 +768,31 @@ Feature: Simple Turns
 
                          .             .
 
-                        g             h
+                       .             .
+
+                      .             .
+
+                     .             .
+
+                    .             .
+
+                   .             .
+
+                  .             .
+
+                 .             .
+
+                .             .
+
+               .             .
+
+              .             .
+
+             .             .
+
+            .             .
+
+            g             h
             """
 
         And the nodes
@@ -784,15 +808,15 @@ Feature: Simple Turns
             | cjk    | Friede | no     |       | tertiary      |
 
         When I route I should get
-            | waypoints | route               | turns                              |
-            | a,g       | Perle,Heide,Heide   | depart,turn right,arrive           |
-            | a,k       | Perle,Friede,Friede | depart,turn left,arrive            |
-            | a,e       | Perle,Perle         | depart,arrive                      |
-            | e,k       | Perle,Friede,Friede | depart,turn right,arrive           |
-            | e,g       | Perle,Heide,Heide   | depart,turn left,arrive            |
-            | h,k       | Heide,Friede,Friede | depart,new name slight left,arrive |
-            | h,e       | Heide,Perle,Perle   | depart,turn right,arrive           |
-            | h,a       | Heide,Perle,Perle   | depart,turn left,arrive            |
+            | waypoints | route               | turns                           | intersections |
+            | a,g       | Perle,Heide,Heide   | depart,turn right,arrive        | true:90;true:90 true:180 false:270 true:345;true:18   |
+            | a,k       | Perle,Friede,Friede | depart,turn left,arrive         | true:90;true:90 true:180 false:270 true:345;true:153  |
+            | a,e       | Perle,Perle         | depart,arrive                   | true:90,true:90 true:180 false:270 true:345;true:270  |
+            | e,k       | Perle,Friede,Friede | depart,turn right,arrive        | true:270;false:90 true:180 true:270 true:345;true:153 |
+            | e,g       | Perle,Heide,Heide   | depart,turn left,arrive         | true:270;false:90 true:180 true:270 true:345;true:18  |
+            | h,k       | Heide,Friede,Friede | depart,new name straight,arrive | true:16;true:90 true:180 true:270 true:345;true:153   |
+            | h,e       | Heide,Perle,Perle   | depart,turn right,arrive        | true:16;true:90 true:180 true:270 true:345;true:270   |
+            | h,a       | Heide,Perle,Perle   | depart,turn left,arrive         | true:16;true:90 true:180 true:270 true:345;true:90    |
 
     #http://www.openstreetmap.org/#map=19/52.53293/13.32956
     Scenario: Curved Exit from Curved Road
@@ -930,6 +954,36 @@ Feature: Simple Turns
                 .                 .                  .
               .                    .                 .
             i                      .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
+                                   .                 .
                                     e                 a
             """
 
@@ -1260,3 +1314,60 @@ Feature: Simple Turns
         When I route I should get
             | waypoints | route              | intersections                                |
             | a,g       | ab,bcdefgh,bcdefgh | true:90;true:45 false:180 false:270;true:180 |
+
+    #https://github.com/Project-OSRM/osrm-backend/pull/3469#issuecomment-270806580
+    Scenario: Oszillating Lower Priority Road
+		#Given the node map
+	#		"""
+	#		a -db    c
+    #           f
+    #   	"""
+        Given the node locations
+            | node | lat                | lon                | #          |
+            | a    | 1.0                | 1.0                |            |
+            | b    | 1.0000179813587253 | 1.0                |            |
+            | c    | 1.0000204580571323 | 1.0                |            |
+            | d    | 1.0000179813587253 | 1.0                | same as b  |
+            | f    | 1.0000179813587253 | 1.0000179813587253 |            |
+
+        And the ways
+            | nodes | oneway | lanes | highway |
+            | ab    | yes    | 1     | primary |
+            | bf    | yes    | 1     | primary |
+            | bcd   | yes    | 1     | service |
+
+        # we don't care for turn instructions, this is a coordinate extraction bug check
+        When I route I should get
+            | waypoints | route |
+            | a,d       | ab,ab |
+
+    Scenario: Sharp Turn Onto A Bridge
+        Given the node map
+            """
+              e
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+              |
+             ga - - -b
+              f    /
+              d -c
+            """
+
+        And the ways
+            | nodes | oneway | lanes |
+            | gaf   | yes    | 1     |
+            | abcde | yes    | 1     |
+
+        When I route I should get
+            | waypoints | route       |
+            | g,e       | abcde,abcde |

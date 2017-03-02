@@ -44,14 +44,7 @@ class Storage
   public:
     Storage(StorageConfig config);
 
-    enum ReturnCode
-    {
-        Ok,
-        Error,
-        Retry
-    };
-
-    ReturnCode Run(int max_wait);
+    int Run(int max_wait);
 
     void PopulateLayout(DataLayout &layout);
     void PopulateData(const DataLayout &layout, char *memory_ptr);
