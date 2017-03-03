@@ -14,7 +14,7 @@ namespace routing_algorithms
 /// This variation is only an optimazation for graphs with slow queries, for example
 /// not fully contracted graphs.
 void DirectShortestPathRouting::
-operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
            const std::vector<PhantomNodes> &phantom_nodes_vector,
            InternalRouteResult &raw_route_data) const
 {

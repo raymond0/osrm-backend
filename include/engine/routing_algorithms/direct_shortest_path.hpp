@@ -39,7 +39,7 @@ class DirectShortestPathRouting final : public BasicRoutingInterface
 
     ~DirectShortestPathRouting() {}
 
-    void operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                     const std::vector<PhantomNodes> &phantom_nodes_vector,
                     InternalRouteResult &raw_route_data) const;
 };

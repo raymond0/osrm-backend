@@ -54,7 +54,7 @@ bool IsSupportedParameterCombination(const bool fixed_start,
 // given the node order in which to visit, compute the actual route (with geometry, travel time and
 // so on) and return the result
 InternalRouteResult
-TripPlugin::ComputeRoute(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+TripPlugin::ComputeRoute(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                          const std::vector<PhantomNode> &snapped_phantoms,
                          const std::vector<NodeID> &trip,
                          const bool roundtrip) const
@@ -144,7 +144,7 @@ void ManipulateTableForFSE(const std::size_t source_id,
     //*********  End of changes to table  *************************************
 }
 
-Status TripPlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+Status TripPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                  const api::TripParameters &parameters,
                                  util::json::Object &json_result) const
 {

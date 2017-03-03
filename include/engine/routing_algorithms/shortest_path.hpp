@@ -37,7 +37,7 @@ class ShortestPathRouting final : public BasicRoutingInterface
 
     // allows a uturn at the target_phantom
     // searches source forward/reverse -> target forward/reverse
-    void SearchWithUTurn(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void SearchWithUTurn(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                          QueryHeap &forward_heap,
                          QueryHeap &reverse_heap,
                          QueryHeap &forward_core_heap,
@@ -56,7 +56,7 @@ class ShortestPathRouting final : public BasicRoutingInterface
     // searches shortest path between:
     // source forward/reverse -> target forward
     // source forward/reverse -> target reverse
-    void Search(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void Search(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                 QueryHeap &forward_heap,
                 QueryHeap &reverse_heap,
                 QueryHeap &forward_core_heap,
@@ -74,14 +74,14 @@ class ShortestPathRouting final : public BasicRoutingInterface
                 std::vector<NodeID> &leg_packed_path_forward,
                 std::vector<NodeID> &leg_packed_path_reverse) const;
 
-    void UnpackLegs(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void UnpackLegs(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                     const std::vector<PhantomNodes> &phantom_nodes_vector,
                     const std::vector<NodeID> &total_packed_path,
                     const std::vector<std::size_t> &packed_leg_begin,
                     const int shortest_path_length,
                     InternalRouteResult &raw_route_data) const;
 
-    void operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                     const std::vector<PhantomNodes> &phantom_nodes_vector,
                     const boost::optional<bool> continue_straight_at_waypoint,
                     InternalRouteResult &raw_route_data) const;

@@ -249,7 +249,7 @@ FixedPoint coordinatesToTilePoint(const util::Coordinate point, const BBox &tile
 
 } // namespace
 
-Status TilePlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+Status TilePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                  const api::TileParameters &parameters,
                                  std::string &pbf_buffer) const
 {

@@ -7,7 +7,7 @@ namespace engine
 namespace routing_algorithms
 {
 
-void AlternativeRouting::operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+void AlternativeRouting::operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                     const PhantomNodes &phantom_node_pair,
                                     InternalRouteResult &raw_route_data)
 {
@@ -344,7 +344,7 @@ void AlternativeRouting::RetrievePackedAlternatePath(const QueryHeap &forward_he
 // from v and intersecting against queues. only half-searches have to be
 // done at this stage
 void AlternativeRouting::ComputeLengthAndSharingOfViaPath(
-    const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    const std::shared_ptr<datafacade::BaseDataFacade> facade,
     const NodeID via_node,
     int *real_length_of_via_path,
     int *sharing_of_via_path,
@@ -514,7 +514,7 @@ void AlternativeRouting::ComputeLengthAndSharingOfViaPath(
 
 // conduct T-Test
 bool AlternativeRouting::ViaNodeCandidatePassesTTest(
-    const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    const std::shared_ptr<datafacade::BaseDataFacade> facade,
     QueryHeap &existing_forward_heap,
     QueryHeap &existing_reverse_heap,
     QueryHeap &new_forward_heap,

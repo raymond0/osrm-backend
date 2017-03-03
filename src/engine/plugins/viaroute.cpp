@@ -28,7 +28,7 @@ ViaRoutePlugin::ViaRoutePlugin(int max_locations_viaroute)
 {
 }
 
-Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                      const api::RouteParameters &route_parameters,
                                      util::json::Object &json_result) const
 {

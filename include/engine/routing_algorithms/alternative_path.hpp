@@ -59,7 +59,7 @@ class AlternativeRouting final : private BasicRoutingInterface
 
     virtual ~AlternativeRouting() {}
 
-    void operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                     const PhantomNodes &phantom_node_pair,
                     InternalRouteResult &raw_route_data);
 
@@ -78,7 +78,7 @@ class AlternativeRouting final : private BasicRoutingInterface
     // from v and intersecting against queues. only half-searches have to be
     // done at this stage
     void
-    ComputeLengthAndSharingOfViaPath(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    ComputeLengthAndSharingOfViaPath(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                      const NodeID via_node,
                                      int *real_length_of_via_path,
                                      int *sharing_of_via_path,
@@ -87,7 +87,7 @@ class AlternativeRouting final : private BasicRoutingInterface
 
     // todo: reorder parameters
     template <bool is_forward_directed>
-    void AlternativeRoutingStep(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void AlternativeRoutingStep(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                 QueryHeap &heap1,
                                 QueryHeap &heap2,
                                 NodeID *middle_node,
@@ -181,7 +181,7 @@ class AlternativeRouting final : private BasicRoutingInterface
     }
 
     // conduct T-Test
-    bool ViaNodeCandidatePassesTTest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    bool ViaNodeCandidatePassesTTest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                      QueryHeap &existing_forward_heap,
                                      QueryHeap &existing_reverse_heap,
                                      QueryHeap &new_forward_heap,

@@ -47,12 +47,12 @@ class ManyToManyRouting final : public BasicRoutingInterface
     }
 
     std::vector<EdgeWeight>
-    operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                const std::vector<PhantomNode> &phantom_nodes,
                const std::vector<std::size_t> &source_indices,
                const std::vector<std::size_t> &target_indices) const;
 
-    void ForwardRoutingStep(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void ForwardRoutingStep(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                             const unsigned row_idx,
                             const unsigned number_of_targets,
                             QueryHeap &query_heap,
@@ -60,13 +60,13 @@ class ManyToManyRouting final : public BasicRoutingInterface
                             std::vector<EdgeWeight> &weights_table,
                             std::vector<EdgeWeight> &durations_table) const;
 
-    void BackwardRoutingStep(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    void BackwardRoutingStep(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                              const unsigned column_idx,
                              QueryHeap &query_heap,
                              SearchSpaceWithBuckets &search_space_with_buckets) const;
 
     template <bool forward_direction>
-    inline void RelaxOutgoingEdges(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    inline void RelaxOutgoingEdges(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                    const NodeID node,
                                    const EdgeWeight weight,
                                    const EdgeWeight duration,
@@ -104,7 +104,7 @@ class ManyToManyRouting final : public BasicRoutingInterface
 
     // Stalling
     template <bool forward_direction>
-    inline bool StallAtNode(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    inline bool StallAtNode(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                             const NodeID node,
                             const EdgeWeight weight,
                             QueryHeap &query_heap) const

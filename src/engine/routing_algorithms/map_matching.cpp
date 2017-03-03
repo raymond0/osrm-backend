@@ -23,7 +23,7 @@ unsigned MapMatching::GetMedianSampleTime(const std::vector<unsigned> &timestamp
 }
 
 SubMatchingList MapMatching::
-operator()(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
            const CandidateLists &candidates_list,
            const std::vector<util::Coordinate> &trace_coordinates,
            const std::vector<unsigned> &trace_timestamps,

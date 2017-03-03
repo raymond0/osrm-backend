@@ -34,7 +34,7 @@ class TripPlugin final : public BasePlugin
     mutable routing_algorithms::ManyToManyRouting duration_table;
     const int max_locations_trip;
 
-    InternalRouteResult ComputeRoute(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    InternalRouteResult ComputeRoute(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                                      const std::vector<PhantomNode> &phantom_node_list,
                                      const std::vector<NodeID> &trip,
                                      const bool roundtrip) const;
@@ -45,7 +45,7 @@ class TripPlugin final : public BasePlugin
     {
     }
 
-    Status HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
+    Status HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                          const api::TripParameters &parameters,
                          util::json::Object &json_result) const;
 };

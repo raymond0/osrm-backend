@@ -54,7 +54,7 @@ struct Hint
     std::uint32_t data_checksum;
 
     bool IsValid(const util::Coordinate new_input_coordinates,
-                 const datafacade::BaseDataFacade &facade) const;
+                 datafacade::BaseDataFacade &facade) const;
 
     std::string ToBase64() const;
     static Hint FromBase64(const std::string &base64Hint);

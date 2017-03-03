@@ -394,6 +394,16 @@ public:
         
         return result_nodes;
     }
+    
+    virtual TurnPenalty GetWeightPenaltyForEdgeID(const unsigned id) const override final
+    {
+        BOOST_ASSERT(false);
+    }
+    
+    virtual TurnPenalty GetDurationPenaltyForEdgeID(const unsigned id) const override final
+    {
+        return 0;
+    }
 
     virtual std::vector<EdgeWeight>
     GetUncompressedForwardWeights(const EdgeID id) const override final
@@ -407,6 +417,16 @@ public:
     {
         std::vector<EdgeWeight> result_weights;
         return result_weights;
+    }
+    
+    virtual std::vector<EdgeWeight> GetUncompressedForwardDurations(const EdgeID id) const override final
+    {
+        BOOST_ASSERT(false);
+    }
+    
+    virtual std::vector<EdgeWeight> GetUncompressedReverseDurations(const EdgeID id) const override final
+    {
+        BOOST_ASSERT(false);
     }
 
     virtual GeometryID GetGeometryIndexForEdgeID(const unsigned id) const override final
@@ -525,12 +545,12 @@ public:
         return 0;
     }
 
-    std::string GetNameForID(const unsigned name_id) const override final
+    StringView GetNameForID(const unsigned name_id) const override final
     {
         return "";  // RHCALLED
     }
 
-    std::string GetRefForID(const unsigned name_id) const override final
+    StringView GetRefForID(const unsigned name_id) const override final
     {
         // We store the ref after the name, destination and pronunciation of a street.
         // We do this to get around the street length limit of 255 which would hit
@@ -539,7 +559,7 @@ public:
         BOOST_ASSERT(false);
     }
 
-    std::string GetPronunciationForID(const unsigned name_id) const override final
+    StringView GetPronunciationForID(const unsigned name_id) const override final
     {
         // We store the pronunciation after the name and destination of a street.
         // We do this to get around the street length limit of 255 which would hit
@@ -548,7 +568,7 @@ public:
         BOOST_ASSERT(false);
     }
 
-    std::string GetDestinationsForID(const unsigned name_id) const override final
+    StringView GetDestinationsForID(const unsigned name_id) const override final
     {
         // We store the destination after the name of a street.
         // We do this to get around the street length limit of 255 which would hit
@@ -643,7 +663,7 @@ public:
         return result_datasources;
     }
 
-    virtual std::string GetDatasourceName(const uint8_t datasource_name_id) const override final
+    virtual StringView GetDatasourceName(const uint8_t datasource_name_id) const override final
     {
         BOOST_ASSERT(false);
     }
@@ -660,6 +680,21 @@ public:
     double GetMapMatchingMaxSpeed() const override final
     {
         BOOST_ASSERT(false);
+    }
+    
+    virtual const char *GetWeightName() const override final
+    {
+        return "";
+    }
+    
+    virtual unsigned GetWeightPrecision() const override final
+    {
+        BOOST_ASSERT(false);
+    }
+    
+    virtual double GetWeightMultiplier() const override final
+    {
+        return 1.0;
     }
 
     BearingClassID GetBearingClassID(const NodeID id) const override final

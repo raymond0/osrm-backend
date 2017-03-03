@@ -108,7 +108,7 @@ class BasePlugin
 
     // Falls back to default_radius for non-set radii
     std::vector<std::vector<PhantomNodeWithDistance>>
-    GetPhantomNodesInRange(const datafacade::BaseDataFacade &facade,
+    GetPhantomNodesInRange(datafacade::BaseDataFacade &facade,
                            const api::BaseParameters &parameters,
                            const std::vector<double> radiuses) const
     {
@@ -150,7 +150,7 @@ class BasePlugin
     }
 
     std::vector<std::vector<PhantomNodeWithDistance>>
-    GetPhantomNodes(const datafacade::BaseDataFacade &facade,
+    GetPhantomNodes(datafacade::BaseDataFacade &facade,
                     const api::BaseParameters &parameters,
                     unsigned number_of_results) const
     {
@@ -216,7 +216,7 @@ class BasePlugin
         return phantom_nodes;
     }
 
-    std::vector<PhantomNodePair> GetPhantomNodes(const datafacade::BaseDataFacade &facade,
+    std::vector<PhantomNodePair> GetPhantomNodes(datafacade::BaseDataFacade &facade,
                                                  const api::BaseParameters &parameters) const
     {
         std::vector<PhantomNodePair> phantom_node_pairs(parameters.coordinates.size());

@@ -24,9 +24,9 @@ struct QueryEdge
         template <class OtherT> EdgeData(const OtherT &other)
         {
             weight = other.weight;
-            duration = other.duration;
+            duration = 0;
             shortcut = other.shortcut;
-            id = other.id;
+            id = other.geometryId.id;
             forward = other.forward;
             backward = other.backward;
         }

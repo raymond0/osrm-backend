@@ -15,7 +15,7 @@ namespace engine
 {
 
 bool Hint::IsValid(const util::Coordinate new_input_coordinates,
-                   const datafacade::BaseDataFacade &facade) const
+                   datafacade::BaseDataFacade &facade) const
 {
     auto is_same_input_coordinate = new_input_coordinates.lon == phantom.input_location.lon &&
                                     new_input_coordinates.lat == phantom.input_location.lat;

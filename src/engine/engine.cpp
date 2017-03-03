@@ -32,7 +32,7 @@ auto GetWatchdogDataFacade()
 // Works the same for every plugin.
 template <typename ParameterT, typename PluginT, typename ResultT>
 osrm::engine::Status
-RunQuery(const std::shared_ptr<const osrm::engine::datafacade::BaseDataFacade> &immutable_facade,
+RunQuery(const std::shared_ptr<osrm::engine::datafacade::BaseDataFacade> &immutable_facade,
          const ParameterT &parameters,
          PluginT &plugin,
          ResultT &result)
@@ -63,16 +63,17 @@ Engine::Engine(const EngineConfig &config)
 {
     if (!config.use_shared_memory)
     {
+#ifdef USE_URT_OSRM
+        immutable_data_facade =
+            std::make_shared<datafacade::UrtDataFacade>(config.storage_config);
+#else
         if (!config.storage_config.IsValid())
         {
             throw util::exception("Invalid file paths given!" + SOURCE_REF);
         }
         auto allocator =
-            std::make_unique<datafacade::ProcessMemoryAllocator>(config.storage_config);
-#ifdef USE_URT_OSRM
-        immutable_data_facade =
-            std::make_shared<datafacade::UrtDataFacade>(config.storage_config);
-#else
+        std::make_unique<datafacade::ProcessMemoryAllocator>(config.storage_config);
+
         immutable_data_facade =
             std::make_shared<const datafacade::ContiguousInternalMemoryDataFacade>(
                 std::move(allocator));
