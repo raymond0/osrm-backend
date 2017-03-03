@@ -76,8 +76,11 @@ inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
         }
 
         prev_coordinate = coordinate;
-        geometry.annotations.emplace_back(LegGeometry::Annotation{
-            current_distance, path_point.duration_until_turn / 10., path_point.datasource_id});
+        geometry.annotations.emplace_back(
+            LegGeometry::Annotation{current_distance,
+                                    path_point.duration_until_turn / 10.,
+                                    path_point.weight_until_turn / facade.GetWeightMultiplier(),
+                                    path_point.datasource_id});
         geometry.locations.push_back(std::move(coordinate));
         geometry.osm_node_ids.push_back(facade.GetOSMNodeIDOfNode(path_point.turn_via_node));
     }
@@ -91,11 +94,17 @@ inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
         facade.GetUncompressedForwardDatasources(target_node.packed_geometry_id);
 
 #ifndef USE_URT_OSRM
-    geometry.annotations.emplace_back(
-        LegGeometry::Annotation{current_distance,
-                                target_node.forward_weight / 10.,
-                                forward_datasources[target_node.fwd_segment_position]});
+    // FIXME if source and target phantoms are on the same segment then duration and weight
+    // will be from one projected point till end of segment
+    // testbot/weight.feature:Start and target on the same and adjacent edge
+    geometry.annotations.emplace_back(LegGeometry::Annotation{
+        current_distance,
+        (reversed_target ? target_node.reverse_duration : target_node.forward_duration) / 10.,
+        (reversed_target ? target_node.reverse_weight : target_node.forward_weight) /
+            facade.GetWeightMultiplier(),
+        forward_datasources[target_node.fwd_segment_position]});
 #endif
+
     geometry.segment_offsets.push_back(geometry.locations.size());
     geometry.locations.push_back(target_node.location);
 

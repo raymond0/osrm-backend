@@ -783,3 +783,72 @@ Feature: Turn Lane Guidance
             | waypoints | route                                  | turns                                                  | lanes                                                                                                                                                               |
             | a,f       | start,first,second,third,fourth,fourth | depart,turn left,turn left,turn left,turn right,arrive | ,left:false left:true none:false none:false,left:false left:true none:false none:false,left:false left:true none:false none:false,left:false left:false right:true, |
             | a,g       | start,first,second,third,fourth,fourth | depart,turn left,turn left,turn left,turn left,arrive  | ,left:true left:true none:false none:false,left:true left:true none:false none:false,left:true left:true none:false none:false,left:true left:true right:false,     |
+
+    @anticipate
+    Scenario: Complex lane scenarios scale threshold for triggering Lane Anticipation
+        Given the node map
+            """
+            a – b – x
+                |
+                |
+                |
+                |
+                |
+                |
+                |
+                |
+                |
+                |
+                c
+                |
+            e – d – y
+            """
+        # With a grid size of 20m the duration is ~20s but our default threshold for Lane Anticipation is 15s.
+        # The additional lanes left and right of the turn scale the threshold up so that Lane Anticipation still triggers.
+
+        And the ways
+            | nodes | turn:lanes:forward             | name |
+            | ab    | through\|through\|right\|right | MySt |
+            | bx    |                                | XSt  |
+            | bc    |                                | MySt |
+            | cd    | left\|right                    | MySt |
+            | de    |                                | MySt |
+            | dy    |                                | YSt  |
+
+       When I route I should get
+            | waypoints | route               | turns                                   | lanes                                                                        |
+            | a,e       | MySt,MySt,MySt,MySt | depart,continue right,turn right,arrive | ,straight:false straight:false right:false right:true,left:false right:true, |
+
+    @anticipate
+    Scenario: Don't Overdo It
+        Given the node map
+            """
+                                  q                     r                     s                     t                     u                     v
+                                  |                     |                     |                     |                     |                     |
+            a - - - - - - - - - - b - - - - - - - - - - c - - - - - - - - - - d - - - - - - - - - - e - - - - - - - - - - f - - - - - - - - - - g - h - i
+                                  |                     |                     |                     |                     |                     |   |
+                                  p                     o                     n                     m                     l                     k   j
+            """
+
+        And the ways
+            | nodes | name | turn:lanes:forward | oneway |
+            | ab    | road | left\|\|\|         | yes    |
+            | bc    | road | left\|\|\|         | yes    |
+            | cd    | road | left\|\|\|         | yes    |
+            | de    | road | left\|\|\|         | yes    |
+            | ef    | road | left\|\|\|         | yes    |
+            | fg    | road | left\|\|\|         | yes    |
+            | gh    | road | \|\|right          | yes    |
+            | hi    | road |                    | yes    |
+            | qbp   | 1st  |                    | no     |
+            | rco   | 2nd  |                    | no     |
+            | sdn   | 3rd  |                    | no     |
+            | tem   | 4th  |                    | no     |
+            | ufl   | 5th  |                    | no     |
+            | vgk   | 6th  |                    | no     |
+            | hj    | 7th  |                    | no     |
+
+        When I route I should get
+            | waypoints | route             | turns                                      | locations | lanes                                                                         |
+            | a,i       | road,road,road    | depart,use lane straight,arrive            | a,g,i     | ,left:false none:true none:true none:false,                                   |
+            | a,j       | road,road,7th,7th | depart,use lane straight,turn right,arrive | a,f,h,j   | ,left:false none:false none:false none:true,none:false none:false right:true, |

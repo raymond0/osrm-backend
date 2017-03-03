@@ -17,6 +17,7 @@
 #include "util/guidance/turn_lanes.hpp"
 #include "util/integer_range.hpp"
 #include "util/string_util.hpp"
+#include "util/string_view.hpp"
 #include "util/typedefs.hpp"
 
 #include "osrm/coordinate.hpp"
@@ -36,6 +37,7 @@ namespace engine
 namespace datafacade
 {
 
+using StringView = util::StringView;
 using EdgeRange = util::range<EdgeID>;
 
 class BaseDataFacade
@@ -83,32 +85,40 @@ class BaseDataFacade
     virtual bool FindSmallestBackwardEdge(const NodeID from, const NodeID to, EdgeArrayEntryApp &smallest_edge) { BOOST_ASSERT( false ); }
 
     // node and edge information access
-    virtual util::Coordinate GetCoordinateOfNode(const unsigned id) const = 0;
-    virtual OSMNodeID GetOSMNodeIDOfNode(const unsigned id) const = 0;
+    virtual util::Coordinate GetCoordinateOfNode(const NodeID id) const = 0;
+    virtual OSMNodeID GetOSMNodeIDOfNode(const NodeID id) const = 0;
 
-    virtual GeometryID GetGeometryIndexForEdgeID(const unsigned id) const = 0;
+    virtual GeometryID GetGeometryIndexForEdgeID(const EdgeID id) const = 0;
 
     virtual std::vector<NodeID> GetUncompressedForwardGeometry(const EdgeID id) = 0;
     virtual std::vector<NodeID> GetUncompressedReverseGeometry(const EdgeID id) = 0;
 
+    virtual TurnPenalty GetWeightPenaltyForEdgeID(const unsigned id) const = 0;
+
+    virtual TurnPenalty GetDurationPenaltyForEdgeID(const unsigned id) const = 0;
+
     // Gets the weight values for each segment in an uncompressed geometry.
     // Should always be 1 shorter than GetUncompressedGeometry
     virtual std::vector<EdgeWeight> GetUncompressedForwardWeights(const EdgeID id) const = 0;
-
     virtual std::vector<EdgeWeight> GetUncompressedReverseWeights(const EdgeID id) const = 0;
+
+    // Gets the duration values for each segment in an uncompressed geometry.
+    // Should always be 1 shorter than GetUncompressedGeometry
+    virtual std::vector<EdgeWeight> GetUncompressedForwardDurations(const EdgeID id) const = 0;
+    virtual std::vector<EdgeWeight> GetUncompressedReverseDurations(const EdgeID id) const = 0;
 
     // Returns the data source ids that were used to supply the edge
     // weights.  Will return an empty array when only the base profile is used.
-    virtual std::vector<uint8_t> GetUncompressedForwardDatasources(const EdgeID id) const = 0;
-    virtual std::vector<uint8_t> GetUncompressedReverseDatasources(const EdgeID id) const = 0;
+    virtual std::vector<DatasourceID> GetUncompressedForwardDatasources(const EdgeID id) const = 0;
+    virtual std::vector<DatasourceID> GetUncompressedReverseDatasources(const EdgeID id) const = 0;
 
     // Gets the name of a datasource
-    virtual std::string GetDatasourceName(const uint8_t datasource_name_id) const = 0;
+    virtual StringView GetDatasourceName(const DatasourceID id) const = 0;
 
     virtual extractor::guidance::TurnInstruction
-    GetTurnInstructionForEdgeID(const unsigned id) const = 0;
+    GetTurnInstructionForEdgeID(const EdgeID id) const = 0;
 
-    virtual extractor::TravelMode GetTravelModeForEdgeID(const unsigned id) const = 0;
+    virtual extractor::TravelMode GetTravelModeForEdgeID(const EdgeID id) const = 0;
 
     virtual std::vector<RTreeLeaf> GetEdgesInBox(const util::Coordinate south_west,
                                                  const util::Coordinate north_east) const = 0;
@@ -165,15 +175,15 @@ class BaseDataFacade
 
     virtual bool IsCoreNode(const NodeID id) const = 0;
 
-    virtual unsigned GetNameIndexFromEdgeID(const unsigned id) const = 0;
+    virtual NameID GetNameIndexFromEdgeID(const EdgeID id) const = 0;
 
-    virtual std::string GetNameForID(const unsigned name_id) const = 0;
+    virtual StringView GetNameForID(const NameID id) const = 0;
 
-    virtual std::string GetRefForID(const unsigned name_id) const = 0;
+    virtual StringView GetRefForID(const NameID id) const = 0;
 
-    virtual std::string GetPronunciationForID(const unsigned name_id) const = 0;
+    virtual StringView GetPronunciationForID(const NameID id) const = 0;
 
-    virtual std::string GetDestinationsForID(const unsigned name_id) const = 0;
+    virtual StringView GetDestinationsForID(const NameID id) const = 0;
 
     virtual std::size_t GetCoreSize() const = 0;
 
@@ -182,6 +192,12 @@ class BaseDataFacade
     virtual bool GetContinueStraightDefault() const = 0;
 
     virtual double GetMapMatchingMaxSpeed() const = 0;
+
+    virtual const char *GetWeightName() const = 0;
+
+    virtual unsigned GetWeightPrecision() const = 0;
+
+    virtual double GetWeightMultiplier() const = 0;
 
     virtual BearingClassID GetBearingClassID(const NodeID id) const = 0;
 

@@ -27,10 +27,11 @@ module.exports = function () {
             return callback(new Error('*** '+stxxl_config+ 'does not exist'));
         }
 
+        this.PLATFORM_WINDOWS = process.platform.match(/^win.*/);
         this.DEFAULT_ENVIRONMENT = Object.assign({STXXLCFG: stxxl_config}, process.env);
         this.DEFAULT_PROFILE = 'bicycle';
         this.DEFAULT_INPUT_FORMAT = 'osm';
-        this.DEFAULT_LOAD_METHOD = 'datastore';
+        this.DEFAULT_LOAD_METHOD = this.PLATFORM_WINDOWS ? 'directly' : 'datastore';
         this.DEFAULT_ORIGIN = [1,1];
         this.OSM_USER = 'osrm';
         this.OSM_GENERATOR = 'osrm-test';
@@ -42,44 +43,33 @@ module.exports = function () {
         this.OSRM_PORT = process.env.OSRM_PORT && parseInt(process.env.OSRM_PORT) || 5000;
         this.HOST = 'http://127.0.0.1:' + this.OSRM_PORT;
 
-        // TODO make sure this works on win
-        if (process.platform.match(/indows.*/)) {
+        if (this.PLATFORM_WINDOWS) {
             this.TERMSIGNAL = 9;
             this.EXE = '.exe';
-            this.LIB = '.dll';
-            this.QQ = '"';
         } else {
             this.TERMSIGNAL = 'SIGTERM';
             this.EXE = '';
+        }
 
-            // heuristically detect .so/.a suffix
-            this.LIB = null;
-
+        // heuristically detect .so/.a/.dll/.lib suffix
+        this.LIB = ['lib%s.a', 'lib%s.so', '%s.dll', '%s.lib'].find((format) => {
             try {
-                const dot_a = util.format('%s/libosrm%s', this.BIN_PATH, '.a');
-                fs.accessSync(dot_a, fs.F_OK);
-                this.LIB = '.a';
-            } catch(e) { /*nop*/ }
+                const lib = this.BIN_PATH + '/' + util.format(format, 'osrm');
+                fs.accessSync(lib, fs.F_OK);
+            } catch(e) { return false; }
+            return true;
+        });
 
-            try {
-                const dot_so = util.format('%s/libosrm%s', this.BIN_PATH, '.so');
-                fs.accessSync(dot_so, fs.F_OK);
-                this.LIB = '.so';
-            } catch(e) { /*nop*/ }
-
-            if (!this.LIB) {
-                throw new Error('*** Unable to detect dynamic or static libosrm libraries');
-            }
-
-            this.QQ = '';
+        if (this.LIB === undefined) {
+            throw new Error('*** Unable to detect dynamic or static libosrm libraries');
         }
 
         this.OSRM_EXTRACT_PATH = path.resolve(util.format('%s/%s%s', this.BIN_PATH, 'osrm-extract', this.EXE));
         this.OSRM_CONTRACT_PATH = path.resolve(util.format('%s/%s%s', this.BIN_PATH, 'osrm-contract', this.EXE));
         this.OSRM_ROUTED_PATH = path.resolve(util.format('%s/%s%s', this.BIN_PATH, 'osrm-routed', this.EXE));
-        this.LIB_OSRM_EXTRACT_PATH = util.format('%s/libosrm_extract%s', this.BIN_PATH, this.LIB),
-        this.LIB_OSRM_CONTRACT_PATH = util.format('%s/libosrm_contract%s', this.BIN_PATH, this.LIB),
-        this.LIB_OSRM_PATH = util.format('%s/libosrm%s', this.BIN_PATH, this.LIB);
+        this.LIB_OSRM_EXTRACT_PATH = util.format('%s/' + this.LIB, this.BIN_PATH, 'osrm_extract'),
+        this.LIB_OSRM_CONTRACT_PATH = util.format('%s/' + this.LIB, this.BIN_PATH, 'osrm_contract'),
+        this.LIB_OSRM_PATH = util.format('%s/' + this.LIB, this.BIN_PATH, 'osrm');
 
         // eslint-disable-next-line no-console
         console.info(util.format('Node Version', process.version));
@@ -108,7 +98,7 @@ module.exports = function () {
         var verify = (binPath, cb) => {
             fs.exists(binPath, (exists) => {
                 if (!exists) return cb(new Error(util.format('%s is missing. Build failed?', binPath)));
-                var helpPath = util.format('%s --help > /dev/null 2>&1', binPath);
+                var helpPath = util.format('%s --help', binPath);
                 child_process.exec(helpPath, (err) => {
                     if (err) {
                         return cb(new Error(util.format('*** %s exited with code %d', helpPath, err.code)));

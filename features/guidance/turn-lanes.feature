@@ -599,22 +599,21 @@ Feature: Turn Lane Guidance
     Scenario: Segregated Intersection Merges With Lanes
         Given the node map
             """
-                        f
-
-            e     d
-                      c g
-            a     b
-
-                      h
+                 a e
+                 | |
+                 | |
+                 b d
+            h     c
+             ' -- g - - f
             """
 
         And the ways
-            | nodes | name     | turn:lanes:forward                 | oneway | highway   |
-            | abc   | road     | left\|left\|left\|through\|through | yes    | primary   |
-            | cde   | road     |                                    | yes    | primary   |
-            | hc    | cross    |                                    | yes    | secondary |
-            | cg    | straight |                                    | no     | tertiary  |
-            | cf    | left     |                                    | yes    | primary   |
+            | nodes | name     | turn:lanes:forward                 | oneway | highway   | lanes |
+            | abc   | road     | left\|left\|left\|through\|through | yes    | primary   | 5     |
+            | cde   | road     |                                    | yes    | primary   | 3     |
+            | hc    | cross    |                                    | yes    | secondary |       |
+            | cg    | straight |                                    | no     | tertiary  |       |
+            | cf    | left     |                                    | yes    | primary   |       |
 
         When I route I should get
             | waypoints | route                  | turns                           | lanes                                                           |
@@ -1159,3 +1158,45 @@ Feature: Turn Lane Guidance
         When I route I should get
             | waypoints | bearings     | route | turns |
             | 1,a       | 90,2 180,180 |       |       |
+
+    @3379
+    Scenario: Don't Turn through potential through lanes
+        Given the node map
+            """
+                      d
+                      |
+            a - - - - b - - - - - c
+                      |
+                      e
+            """
+        And the ways
+            | nodes | name  | oneway | turn:lanes:forward |
+            | ab    | road  | yes    | left\|none\|none   |
+            | bc    | road  | yes    |                    |
+            | ebd   | cross | no     |                    |
+
+        When I route I should get
+            | waypoints | route            | turns                    | lanes                             |
+            | a,e       | road,cross,cross | depart,turn right,arrive | ,left:false none:false none:true, |
+            | a,c       | road,road        | depart,arrive            | ,                                 |
+
+    @3379
+    Scenario: Don't Turn through potential through lanes
+        Given the node map
+            """
+                      d
+                      |
+            a - - - - b - - - - - c
+                      |
+                      e
+            """
+        And the ways
+            | nodes | name  | oneway | turn:lanes:forward |
+            | ab    | road  | yes    | none\|none\|right  |
+            | bc    | road  | yes    |                    |
+            | ebd   | cross | no     |                    |
+
+        When I route I should get
+            | waypoints | route            | turns                   | lanes                              |
+            | a,d       | road,cross,cross | depart,turn left,arrive | ,none:true none:false right:false, |
+            | a,c       | road,road        | depart,arrive           | ,                                  |

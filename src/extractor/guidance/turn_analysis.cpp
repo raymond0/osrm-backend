@@ -65,7 +65,12 @@ TurnAnalysis::TurnAnalysis(const util::NodeBasedDynamicGraph &node_based_graph,
                        node_based_graph,
                        node_info_list,
                        name_table,
-                       street_name_suffix_table)
+                       street_name_suffix_table),
+      suppress_mode_handler(intersection_generator,
+                            node_based_graph,
+                            node_info_list,
+                            name_table,
+                            street_name_suffix_table)
 {
 }
 
@@ -75,13 +80,13 @@ Intersection TurnAnalysis::operator()(const NodeID node_prior_to_intersection,
     TurnAnalysis::ShapeResult shape_result =
         ComputeIntersectionShapes(node_based_graph.GetTarget(entering_via_edge));
 
-    // assign valid flags to normalised_shape
+    // assign valid flags to normalized_shape
     const auto intersection_view = intersection_generator.TransformIntersectionShapeIntoView(
         node_prior_to_intersection,
         entering_via_edge,
-        shape_result.normalised_intersection_shape,
+        shape_result.annotated_normalized_shape.normalized_shape,
         shape_result.intersection_shape,
-        shape_result.merging_map);
+        shape_result.annotated_normalized_shape.performed_merges);
 
     // assign the turn types to the intersection
     return AssignTurnTypes(node_prior_to_intersection, entering_via_edge, intersection_view);
@@ -106,6 +111,19 @@ Intersection TurnAnalysis::AssignTurnTypes(const NodeID node_prior_to_intersecti
                                             {TurnType::Invalid, DirectionModifier::UTurn},
                                             INVALID_LANE_DATAID);
                    });
+
+    // Suppress turns on ways between mode types that do not need guidance, think ferry routes.
+    // This handler has to come first and when it triggers we're done with the intersection: there's
+    // nothing left to be done once we suppressed instructions on such routes. Exit early.
+    if (suppress_mode_handler.canProcess(
+            node_prior_to_intersection, entering_via_edge, intersection))
+    {
+        intersection = suppress_mode_handler(
+            node_prior_to_intersection, entering_via_edge, std::move(intersection));
+
+        return intersection;
+    }
+
     if (roundabout_handler.canProcess(node_prior_to_intersection, entering_via_edge, intersection))
     {
         intersection = roundabout_handler(
@@ -153,9 +171,8 @@ TurnAnalysis::ComputeIntersectionShapes(const NodeID node_at_center_of_intersect
     intersection_shape.intersection_shape =
         intersection_generator.ComputeIntersectionShape(node_at_center_of_intersection);
 
-    std::tie(intersection_shape.normalised_intersection_shape, intersection_shape.merging_map) =
-        intersection_normalizer(node_at_center_of_intersection,
-                                intersection_shape.intersection_shape);
+    intersection_shape.annotated_normalized_shape = intersection_normalizer(
+        node_at_center_of_intersection, intersection_shape.intersection_shape);
 
     return intersection_shape;
 }

@@ -28,7 +28,7 @@ ViaRoutePlugin::ViaRoutePlugin(int max_locations_viaroute)
 {
 }
 
-Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
+Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<const datafacade::BaseDataFacade> facade,
                                      const api::RouteParameters &route_parameters,
                                      util::json::Object &json_result) const
 {
@@ -103,16 +103,16 @@ Status ViaRoutePlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataF
     {
         if (route_parameters.alternatives && facade->GetCoreSize() == 0)
         {
-            alternative_path(*facade, raw_route.segment_end_coordinates.front(), raw_route);
+            alternative_path(facade, raw_route.segment_end_coordinates.front(), raw_route);
         }
         else
         {
-            direct_shortest_path(*facade, raw_route.segment_end_coordinates, raw_route);
+            direct_shortest_path(facade, raw_route.segment_end_coordinates, raw_route);
         }
     }
     else
     {
-        shortest_path(*facade,
+        shortest_path(facade,
                       raw_route.segment_end_coordinates,
                       route_parameters.continue_straight,
                       raw_route);
