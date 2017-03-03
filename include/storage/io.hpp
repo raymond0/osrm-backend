@@ -5,7 +5,7 @@
 #include "util/exception_utils.hpp"
 #include "util/fingerprint.hpp"
 #include "util/log.hpp"
-#include "util/version.hpp"
+//#include "util/version.hpp"
 
 #include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/seek.hpp>
@@ -154,7 +154,7 @@ class FileReader
                                 << loaded_fingerprint.GetMajorVersion() << "."
                                 << loaded_fingerprint.GetMinorVersion() << "."
                                 << loaded_fingerprint.GetPatchVersion() << " but you are running "
-                                << OSRM_VERSION;
+                                << "Ray - OSRM_VERSION macro";
             util::Log(logERROR) << "Data is only compatible between minor releases.";
             return false;
         }

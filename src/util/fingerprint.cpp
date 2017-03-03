@@ -1,7 +1,7 @@
 #include "util/fingerprint.hpp"
 #include "util/exception.hpp"
 #include "util/exception_utils.hpp"
-#include "util/version.hpp"
+//#include "util/version.hpp"
 
 #include <boost/assert.hpp>
 #include <boost/crc.hpp>
@@ -29,9 +29,9 @@ FingerPrint FingerPrint::GetValid()
     // used M, so we add one and use N to indicate the newer fingerprint magic number.
     // Bump this value if the fingerprint format ever changes.
     fingerprint.magic_number = {{'O', 'S', 'R', 'N'}};
-    fingerprint.major_version = OSRM_VERSION_MAJOR;
-    fingerprint.minor_version = OSRM_VERSION_MINOR;
-    fingerprint.patch_version = OSRM_VERSION_PATCH;
+    fingerprint.major_version = 5;
+    fingerprint.minor_version = 5;
+    fingerprint.patch_version = 6;
     fingerprint.checksum = fingerprint.CalculateChecksum();
 
     return fingerprint;

@@ -28,7 +28,8 @@ PhantomLoopupPlugin::PhantomLoopupPlugin(int max_locations_viaroute)
 }
     
 
-Status PhantomLoopupPlugin::HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade, const osrm::util::FloatCoordinate &coordinate, osrm::engine::PhantomNode &result) const
+Status PhantomLoopupPlugin::HandleRequest(const std::shared_ptr<const osrm::engine::datafacade::BaseDataFacade> &immutable_facade,
+                                          const osrm::util::FloatCoordinate &coordinate, osrm::engine::PhantomNode &result) const
 {
     util::json::Object json_result;
     
@@ -40,7 +41,7 @@ Status PhantomLoopupPlugin::HandleRequest(const std::shared_ptr<datafacade::Base
     api::BaseParameters route_parameters;
     route_parameters.coordinates.emplace_back(coordinate);
     
-    auto phantom_node_pairs = GetPhantomNodes(*facade, route_parameters);
+    auto phantom_node_pairs = GetPhantomNodes(*immutable_facade, route_parameters);
     if (phantom_node_pairs.size() != route_parameters.coordinates.size())
     {
         return Error("NoSegment",
