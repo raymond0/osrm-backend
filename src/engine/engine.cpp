@@ -75,7 +75,7 @@ Engine::Engine(const EngineConfig &config)
         std::make_unique<datafacade::ProcessMemoryAllocator>(config.storage_config);
 
         immutable_data_facade =
-            std::make_shared<const datafacade::ContiguousInternalMemoryDataFacade>(
+            std::make_shared<datafacade::ContiguousInternalMemoryDataFacade>(
                 std::move(allocator));
 #endif
     }

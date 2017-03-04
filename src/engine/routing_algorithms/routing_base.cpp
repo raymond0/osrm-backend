@@ -35,17 +35,16 @@ void BasicRoutingInterface::RoutingStep(
                 new_weight < 0)
             {
                 // check whether there is a loop present at the node
-                EdgeArray edges;
-                facade->GetAdjacentEdges(node, edges);
-                for (const auto &edge : edges)
+                for (const auto edge : facade->GetAdjacentEdgeRange(node))
                 {
-                    bool forward_directionFlag = (forward_direction ? edge.forward : edge.backward);
+                    const EdgeData &data = facade->GetEdgeData(edge);
+                    bool forward_directionFlag = (forward_direction ? data.forward : data.backward);
                     if (forward_directionFlag)
                     {
-                        const NodeID to = edge.target;
+                        const NodeID to = facade->GetTarget(edge);
                         if (to == node)
                         {
-                            const EdgeWeight edge_weight = edge.weight;
+                            const EdgeWeight edge_weight = data.weight;
                             const EdgeWeight loop_weight = new_weight + edge_weight;
                             if (loop_weight >= 0 && loop_weight < upper_bound)
                             {
@@ -78,15 +77,14 @@ void BasicRoutingInterface::RoutingStep(
     // Stalling
     if (stalling)
     {
-        EdgeArray edges;
-        facade->GetAdjacentEdges(node, edges);
-        for (const auto &edge : edges)
+        for (const auto edge : facade->GetAdjacentEdgeRange(node))
         {
-            const bool reverse_flag = ((!forward_direction) ? edge.forward : edge.backward);
+            const EdgeData &data = facade->GetEdgeData(edge);
+            const bool reverse_flag = ((!forward_direction) ? data.forward : data.backward);
             if (reverse_flag)
             {
-                const NodeID to = edge.target;
-                const EdgeWeight edge_weight = edge.weight;
+                const NodeID to = facade->GetTarget(edge);
+                const EdgeWeight edge_weight = data.weight;
 
                 BOOST_ASSERT_MSG(edge_weight > 0, "edge_weight invalid");
 
@@ -101,15 +99,14 @@ void BasicRoutingInterface::RoutingStep(
         }
     }
 
-    EdgeArray edges;
-    facade->GetAdjacentEdges(node, edges);
-    for (const auto &edge :edges)
+    for (const auto edge : facade->GetAdjacentEdgeRange(node))
     {
-        bool forward_directionFlag = (forward_direction ? edge.forward : edge.backward);
+        const EdgeData &data = facade->GetEdgeData(edge);
+        bool forward_directionFlag = (forward_direction ? data.forward : data.backward);
         if (forward_directionFlag)
         {
-            const NodeID to = edge.target;
-            const EdgeWeight edge_weight = edge.weight;
+            const NodeID to = facade->GetTarget(edge);
+            const EdgeWeight edge_weight = data.weight;
 
             BOOST_ASSERT_MSG(edge_weight > 0, "edge_weight invalid");
             const EdgeWeight to_weight = weight + edge_weight;

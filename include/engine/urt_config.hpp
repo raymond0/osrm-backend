@@ -12,6 +12,6 @@
 //
 // Switches to URT version
 //
-#define USE_URT_OSRM
+//#define USE_URT_OSRM
 
 #endif /* urt_config_h */

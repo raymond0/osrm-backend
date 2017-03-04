@@ -82,17 +82,17 @@ class BasicRoutingInterface
     EdgeWeight GetLoopWeight(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                              NodeID node) const
     {
-        EdgeWeight loop_weight = INVALID_EDGE_WEIGHT;
-        EdgeArray edges;
-        facade->GetAdjacentEdges(node, edges);
-        for (auto &edge : edges)
+        EdgeWeight loop_weight = UseDuration ? MAXIMAL_EDGE_DURATION : INVALID_EDGE_WEIGHT;
+        for (auto edge : facade->GetAdjacentEdgeRange(node))
         {
-            if (edge.forward)
+            const auto &data = facade->GetEdgeData(edge);
+            if (data.forward)
             {
-                const NodeID to = edge.target;
+                const NodeID to = facade->GetTarget(edge);
                 if (to == node)
                 {
-                    loop_weight = std::min(loop_weight, edge.weight);
+                    const auto value = UseDuration ? data.duration : data.weight;
+                    loop_weight = std::min(loop_weight, value);
                 }
             }
         }
@@ -129,17 +129,17 @@ class BasicRoutingInterface
              &phantom_node_pair,
              &start_traversed_in_reverse,
              &target_traversed_in_reverse](std::pair<NodeID, NodeID> & /* edge */,
-                                           const EdgeArrayEntryApp &edge_data) {
+                                           const EdgeData &edge_data) {
 
                 BOOST_ASSERT_MSG(!edge_data.shortcut, "original edge flagged as shortcut");
-                const auto name_index = facade->GetNameIndexFromEdgeID(edge_data.geometryId.id);
-                const auto turn_instruction = facade->GetTurnInstructionForEdgeID(edge_data.geometryId.id);
+                const auto name_index = facade->GetNameIndexFromEdgeID(edge_data.id);
+                const auto turn_instruction = facade->GetTurnInstructionForEdgeID(edge_data.id);
                 const extractor::TravelMode travel_mode =
                     (unpacked_path.empty() && start_traversed_in_reverse)
                         ? phantom_node_pair.source_phantom.backward_travel_mode
-                        : facade->GetTravelModeForEdgeID(edge_data.geometryId.id);
+                        : facade->GetTravelModeForEdgeID(edge_data.id);
 
-                auto geometry_index = edge_data.geometryId;
+                const auto geometry_index = facade->GetGeometryIndexForEdgeID(edge_data.id);
                 std::vector<NodeID> id_vector;
 
                 std::vector<EdgeWeight> weight_vector;
@@ -149,7 +149,7 @@ class BasicRoutingInterface
                 {
                     id_vector = facade->GetUncompressedForwardGeometry(geometry_index.id);
                     weight_vector = facade->GetUncompressedForwardWeights(geometry_index.id);
-                    //duration_vector = facade->GetUncompressedForwardDurations(geometry_index.id);
+                    duration_vector = facade->GetUncompressedForwardDurations(geometry_index.id);
                     datasource_vector =
                         facade->GetUncompressedForwardDatasources(geometry_index.id);
                 }
@@ -157,27 +157,25 @@ class BasicRoutingInterface
                 {
                     id_vector = facade->GetUncompressedReverseGeometry(geometry_index.id);
                     weight_vector = facade->GetUncompressedReverseWeights(geometry_index.id);
-                    //duration_vector = facade->GetUncompressedReverseDurations(geometry_index.id);
+                    duration_vector = facade->GetUncompressedReverseDurations(geometry_index.id);
                     datasource_vector =
                         facade->GetUncompressedReverseDatasources(geometry_index.id);
                 }
                 BOOST_ASSERT(id_vector.size() > 0);
-                //BOOST_ASSERT(datasource_vector.size() > 0);
-                //BOOST_ASSERT(weight_vector.size() == id_vector.size() - 1);
-                //BOOST_ASSERT(weight_vector.size() == id_vector.size() - 1);
-                //BOOST_ASSERT(duration_vector.size() == id_vector.size() - 1);
+                BOOST_ASSERT(datasource_vector.size() > 0);
+                BOOST_ASSERT(weight_vector.size() == id_vector.size() - 1);
+                BOOST_ASSERT(duration_vector.size() == id_vector.size() - 1);
                 const bool is_first_segment = unpacked_path.empty();
 
                 const std::size_t start_index =
                     (is_first_segment
                          ? ((start_traversed_in_reverse)
-                                ? id_vector.size() -
-                                      phantom_node_pair.source_phantom.fwd_segment_position - 2
+                                ? weight_vector.size() -
+                                      phantom_node_pair.source_phantom.fwd_segment_position - 1
                                 : phantom_node_pair.source_phantom.fwd_segment_position)
                          : 0);
-                //const std::size_t end_index = weight_vector.size();
-                const std::size_t end_index = id_vector.size() - 1;
-                
+                const std::size_t end_index = weight_vector.size();
+
                 BOOST_ASSERT(start_index >= 0);
                 BOOST_ASSERT(start_index < end_index);
                 for (std::size_t segment_idx = start_index; segment_idx < end_index; ++segment_idx)
@@ -185,27 +183,28 @@ class BasicRoutingInterface
                     unpacked_path.push_back(
                         PathData{id_vector[segment_idx + 1],
                                  name_index,
-                                 0,//weight_vector[segment_idx],
-                                 0,//duration_vector[segment_idx],
+                                 weight_vector[segment_idx],
+                                 duration_vector[segment_idx],
                                  extractor::guidance::TurnInstruction::NO_TURN(),
                                  {{0, INVALID_LANEID}, INVALID_LANE_DESCRIPTIONID},
                                  travel_mode,
                                  INVALID_ENTRY_CLASSID,
-                                 0, //datasource_vector[segment_idx],
+                                 datasource_vector[segment_idx],
                                  util::guidance::TurnBearing(0),
                                  util::guidance::TurnBearing(0)});
                 }
                 BOOST_ASSERT(unpacked_path.size() > 0);
-                if (facade->hasLaneData(edge_data.geometryId.id))
-                    unpacked_path.back().lane_data = facade->GetLaneData(edge_data.geometryId.id);
+                if (facade->hasLaneData(edge_data.id))
+                    unpacked_path.back().lane_data = facade->GetLaneData(edge_data.id);
 
-                unpacked_path.back().entry_classid = facade->GetEntryClassID(edge_data.geometryId.id);
+                unpacked_path.back().entry_classid = facade->GetEntryClassID(edge_data.id);
                 unpacked_path.back().turn_instruction = turn_instruction;
                 unpacked_path.back().duration_until_turn +=
-                    facade->GetDurationPenaltyForEdgeID(edge_data.geometryId.id);
-                unpacked_path.back().weight_until_turn += edge_data.weight;
-                unpacked_path.back().pre_turn_bearing = facade->PreTurnBearing(edge_data.geometryId.id);
-                unpacked_path.back().post_turn_bearing = facade->PostTurnBearing(edge_data.geometryId.id);
+                    facade->GetDurationPenaltyForEdgeID(edge_data.id);
+                unpacked_path.back().weight_until_turn +=
+                    facade->GetWeightPenaltyForEdgeID(edge_data.id);
+                unpacked_path.back().pre_turn_bearing = facade->PreTurnBearing(edge_data.id);
+                unpacked_path.back().post_turn_bearing = facade->PostTurnBearing(edge_data.id);
             });
 
         std::size_t start_index = 0, end_index = 0;
@@ -225,19 +224,19 @@ class BasicRoutingInterface
             weight_vector = facade->GetUncompressedReverseWeights(
                 phantom_node_pair.target_phantom.packed_geometry_id);
 
-            //duration_vector = facade->GetUncompressedReverseDurations(
-            //    phantom_node_pair.target_phantom.packed_geometry_id);
+            duration_vector = facade->GetUncompressedReverseDurations(
+                phantom_node_pair.target_phantom.packed_geometry_id);
 
             datasource_vector = facade->GetUncompressedReverseDatasources(
                 phantom_node_pair.target_phantom.packed_geometry_id);
 
             if (is_local_path)
             {
-                start_index = id_vector.size() -
-                              phantom_node_pair.source_phantom.fwd_segment_position - 2;
+                start_index = weight_vector.size() -
+                              phantom_node_pair.source_phantom.fwd_segment_position - 1;
             }
             end_index =
-                id_vector.size() - phantom_node_pair.target_phantom.fwd_segment_position - 2;
+                weight_vector.size() - phantom_node_pair.target_phantom.fwd_segment_position - 1;
         }
         else
         {
@@ -253,8 +252,8 @@ class BasicRoutingInterface
             weight_vector = facade->GetUncompressedForwardWeights(
                 phantom_node_pair.target_phantom.packed_geometry_id);
 
-            //duration_vector = facade->GetUncompressedForwardDurations(
-            //    phantom_node_pair.target_phantom.packed_geometry_id);
+            duration_vector = facade->GetUncompressedForwardDurations(
+                phantom_node_pair.target_phantom.packed_geometry_id);
 
             datasource_vector = facade->GetUncompressedForwardDatasources(
                 phantom_node_pair.target_phantom.packed_geometry_id);
@@ -275,14 +274,14 @@ class BasicRoutingInterface
             unpacked_path.push_back(PathData{
                 id_vector[start_index < end_index ? segment_idx + 1 : segment_idx - 1],
                 phantom_node_pair.target_phantom.name_id,
-                0, //weight_vector[segment_idx],
-                0, //duration_vector[segment_idx],
+                weight_vector[segment_idx],
+                duration_vector[segment_idx],
                 extractor::guidance::TurnInstruction::NO_TURN(),
                 {{0, INVALID_LANEID}, INVALID_LANE_DESCRIPTIONID},
                 target_traversed_in_reverse ? phantom_node_pair.target_phantom.backward_travel_mode
                                             : phantom_node_pair.target_phantom.forward_travel_mode,
                 INVALID_ENTRY_CLASSID,
-                0,//datasource_vector[segment_idx],
+                datasource_vector[segment_idx],
                 util::guidance::TurnBearing(0),
                 util::guidance::TurnBearing(0)});
         }
