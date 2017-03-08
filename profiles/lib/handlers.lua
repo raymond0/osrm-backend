@@ -114,8 +114,10 @@ function Handlers.handle_ferries(way,result,data,profile)
      end
      result.forward_mode = mode.ferry
      result.backward_mode = mode.ferry
-     result.forward_speed = route_speed
-     result.backward_speed = route_speed
+     result.city_forward_speed = route_speed
+     result.city_backward_speed = route_speed
+     result.country_forward_speed = route_speed
+     result.country_backward_speed = route_speed
     end
   end
 end
@@ -134,8 +136,10 @@ function Handlers.handle_movables(way,result,data,profile)
         if duration and durationIsValid(duration) then
           result.duration = math.max( parseDuration(duration), 1 )
         else
-          result.forward_speed = bridge_speed
-          result.backward_speed = bridge_speed
+          result.city_forward_speed = bridge_speed
+          result.city_backward_speed = bridge_speed
+          result.country_forward_speed = bridge_speed
+          result.country_backward_speed = bridge_speed
         end
       end
     end
@@ -235,36 +239,43 @@ end
 
 -- handle speed (excluding maxspeed)
 function Handlers.handle_speed(way,result,data,profile)
-  if result.forward_speed ~= -1 then
+  if result.city_forward_speed ~= -1 then
     return        -- abort if already set, eg. by a route
   end
 
-  local key,value,speed = Tags.get_constant_by_key_value(way,profile.speeds)
+  local key,value,city_speed = Tags.get_constant_by_key_value(way,profile.city_speeds)
+  local xxkey,xxvalue,country_speed = Tags.get_constant_by_key_value(way,profile.country_speeds)
 
-  if speed then
+  if city_speed then
     -- set speed by way type
-    result.forward_speed = speed
-    result.backward_speed = speed
+    result.city_forward_speed = city_speed
+    result.city_backward_speed = city_speed
+    result.country_forward_speed = country_speed
+    result.country_backward_speed = country_speed
   else
     -- Set the avg speed on ways that are marked accessible
     if profile.access_tag_whitelist[data.forward_access] then
-      result.forward_speed = profile.default_speed
+      result.city_forward_speed = profile.default_speed
+      result.country_forward_speed = profile.default_speed
     elseif data.forward_access and not profile.access_tag_blacklist[data.forward_access] then
-      result.forward_speed = profile.default_speed -- fallback to the avg speed if access tag is not blacklisted
+      result.city_forward_speed = profile.default_speed -- fallback to the avg speed if access tag is not blacklisted
+      result.country_forward_speed = profile.default_speed
     elseif not data.forward_access and data.backward_access then
        result.forward_mode = mode.inaccessible
     end
 
     if profile.access_tag_whitelist[data.backward_access] then
-      result.backward_speed = profile.default_speed
+      result.city_backward_speed = profile.default_speed
+      result.country_backward_speed = profile.default_speed
     elseif data.backward_access and not profile.access_tag_blacklist[data.backward_access] then
-      result.backward_speed = profile.default_speed -- fallback to the avg speed if access tag is not blacklisted
+      result.city_backward_speed = profile.default_speed -- fallback to the avg speed if access tag is not blacklisted
+      result.country_backward_speed = profile.default_speed
     elseif not data.backward_access and data.forward_access then
        result.backward_mode = mode.inaccessible
     end
   end
 
-  if result.forward_speed == -1 and result.backward_speed == -1 and result.duration <= 0 then
+  if result.city_forward_speed == -1 and result.city_backward_speed == -1 and result.duration <= 0 then
     return false
   end
 end
@@ -276,16 +287,22 @@ function Handlers.handle_surface(way,result,data,profile)
   local smoothness = way:get_value_by_key("smoothness")
 
   if surface and profile.surface_speeds[surface] then
-    result.forward_speed = math.min(profile.surface_speeds[surface], result.forward_speed)
-    result.backward_speed = math.min(profile.surface_speeds[surface], result.backward_speed)
+    result.city_forward_speed = math.min(profile.surface_speeds[surface], result.city_forward_speed)
+    result.country_forward_speed = math.min(profile.surface_speeds[surface], result.country_forward_speed)
+    result.city_backward_speed = math.min(profile.surface_speeds[surface], result.city_backward_speed)
+    result.country_backward_speed = math.min(profile.surface_speeds[surface], result.country_backward_speed)
   end
   if tracktype and profile.tracktype_speeds[tracktype] then
-    result.forward_speed = math.min(profile.tracktype_speeds[tracktype], result.forward_speed)
-    result.backward_speed = math.min(profile.tracktype_speeds[tracktype], result.backward_speed)
+    result.city_forward_speed = math.min(profile.tracktype_speeds[tracktype], result.city_forward_speed)
+    result.country_forward_speed = math.min(profile.tracktype_speeds[tracktype], result.country_forward_speed)
+    result.city_backward_speed = math.min(profile.tracktype_speeds[tracktype], result.city_backward_speed)
+    result.country_backward_speed = math.min(profile.tracktype_speeds[tracktype], result.country_backward_speed)
   end
   if smoothness and profile.smoothness_speeds[smoothness] then
-    result.forward_speed = math.min(profile.smoothness_speeds[smoothness], result.forward_speed)
-    result.backward_speed = math.min(profile.smoothness_speeds[smoothness], result.backward_speed)
+    result.city_forward_speed = math.min(profile.smoothness_speeds[smoothness], result.city_forward_speed)
+    result.country_forward_speed = math.min(profile.smoothness_speeds[smoothness], result.country_forward_speed)
+    result.city_backward_speed = math.min(profile.smoothness_speeds[smoothness], result.city_backward_speed)
+    result.country_backward_speed = math.min(profile.smoothness_speeds[smoothness], result.country_backward_speed)
   end
 end
 
@@ -316,7 +333,7 @@ function Handlers.handle_penalties(way,result,data,profile)
                            result.backward_mode ~= mode.inaccessible
 
   if width <= 3 or (lanes <= 1 and is_bidirectional) then
-    width_penalty = 0.5
+    width_penalty = 1.0
   end
 
   -- Handle high frequency reversible oneways (think traffic signal controlled, changing direction every 15 minutes).
@@ -336,14 +353,17 @@ function Handlers.handle_penalties(way,result,data,profile)
   local backward_penalty = math.min(service_penalty, width_penalty, alternating_penalty, sideroad_penalty)
 
   if properties.weight_name == 'routability' then
-    if result.forward_speed > 0 then
-      result.forward_rate = (result.forward_speed * forward_penalty) / 3.6
+    if result.city_forward_speed > 0 then
+      result.city_forward_rate = (result.city_forward_speed * forward_penalty) / 3.6
+      result.country_forward_rate = (result.country_forward_speed * forward_penalty) / 3.6
     end
-    if result.backward_speed > 0 then
-      result.backward_rate = (result.backward_speed * backward_penalty) / 3.6
+    if result.city_backward_speed > 0 then
+      result.city_backward_rate = (result.city_backward_speed * backward_penalty) / 3.6
+      result.country_backward_rate = (result.country_backward_speed * backward_penalty) / 3.6
     end
     if result.duration > 0 then
-      result.weight = result.duration / forward_penalty
+      result.city_weight = result.duration / forward_penalty
+      result.country_weight = result.duration / forward_penalty
     end
   end
 end
@@ -356,11 +376,13 @@ function Handlers.handle_maxspeed(way,result,data,profile)
   backward = Handlers.parse_maxspeed(backward,profile)
 
   if forward and forward > 0 then
-    result.forward_speed = forward * profile.speed_reduction
+    result.city_forward_speed = forward * profile.speed_reduction
+    result.country_forward_speed = forward * profile.speed_reduction
   end
 
   if backward and backward > 0 then
-    result.backward_speed = backward * profile.speed_reduction
+    result.city_backward_speed = backward * profile.speed_reduction
+    result.country_backward_speed = backward * profile.speed_reduction
   end
 end
 
@@ -427,13 +449,16 @@ end
 
 function Handlers.handle_weights(way,result,data,profile)
   if properties.weight_name == 'distance' then
-    result.weight = 0
+    result.city_weight = 0
+    result.country_weight = 0
      -- set weight rates to 1 for the distance weight, edge weights are distance / rate
-    if (result.forward_mode ~= mode.inaccessible and result.forward_speed > 0) then
-       result.forward_rate = 1
+    if (result.forward_mode ~= mode.inaccessible and result.city_forward_speed > 0) then
+       result.city_forward_rate = 1
+       result.country_forward_rate = 1
     end
-    if (result.backward_mode ~= mode.inaccessible and result.backward_speed > 0) then
-       result.backward_rate = 1
+    if (result.backward_mode ~= mode.inaccessible and result.city_backward_speed > 0) then
+       result.city_backward_rate = 1
+       result.country_backward_rate = 1
     end
   end
 end

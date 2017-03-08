@@ -44,10 +44,13 @@ struct ExtractionWay
         city_backward_speed = -1;
         country_forward_speed = -1;
         country_backward_speed = -1;
-        forward_rate = -1;
-        backward_rate = -1;
+        city_forward_rate = -1;
+        city_backward_rate = -1;
+        country_forward_rate = -1;
+        country_backward_rate = -1;
         duration = -1;
-        weight = -1;
+        city_weight = -1;
+        country_weight = -1;
         roundabout = false;
         circular = false;
         is_startpoint = true;
@@ -97,12 +100,15 @@ struct ExtractionWay
     double country_forward_speed;
     double country_backward_speed;
     // weight per meter
-    double forward_rate;
-    double backward_rate;
+    double city_forward_rate;
+    double city_backward_rate;
+    double country_forward_rate;
+    double country_backward_rate;
     // duration of the whole way in both directions
     double duration;
     // weight of the whole way in both directions
-    double weight;
+    double city_weight;
+    double country_weight;
     std::string name;
     std::string ref;
     std::string pronunciation;

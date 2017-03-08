@@ -93,10 +93,10 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
     }
 
     if (!fallback_to_duration && (parsed_way.forward_travel_mode == TRAVEL_MODE_INACCESSIBLE ||
-                                  parsed_way.forward_rate <= 0) &&
+                                  parsed_way.city_forward_rate <= 0) &&
         (parsed_way.backward_travel_mode == TRAVEL_MODE_INACCESSIBLE ||
-         parsed_way.backward_rate <= 0) &&
-        parsed_way.weight <= 0)
+         parsed_way.city_backward_rate <= 0) &&
+        parsed_way.city_weight <= 0)
     { // Only true if the way is assigned a valid rate/weight and there is no duration fallback
         return;
     }
@@ -116,8 +116,10 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
 
     InternalExtractorEdge::DurationData forward_duration_data;
     InternalExtractorEdge::DurationData backward_duration_data;
-    InternalExtractorEdge::WeightData forward_weight_data;
-    InternalExtractorEdge::WeightData backward_weight_data;
+    InternalExtractorEdge::WeightData city_forward_weight_data;
+    InternalExtractorEdge::WeightData country_forward_weight_data;
+    InternalExtractorEdge::WeightData city_backward_weight_data;
+    InternalExtractorEdge::WeightData country_backward_weight_data;
 
     const auto toValueByEdgeOrByMeter = [&nodes](const double by_way, const double by_meter) {
         using Value = detail::ByEdgeOrByMeterValue;
@@ -146,13 +148,16 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
         // fallback to duration as weight
         if (fallback_to_duration)
         {
-            forward_weight_data = forward_duration_data;
+            BOOST_ASSERT(false);
+            city_forward_weight_data = forward_duration_data;
         }
         else
         {
-            BOOST_ASSERT(parsed_way.weight > 0 || parsed_way.forward_rate > 0);
-            forward_weight_data =
-                toValueByEdgeOrByMeter(parsed_way.weight, parsed_way.forward_rate);
+            BOOST_ASSERT(parsed_way.city_weight > 0 || parsed_way.city_forward_rate > 0);
+            city_forward_weight_data =
+                toValueByEdgeOrByMeter(parsed_way.city_weight, parsed_way.city_forward_rate);
+            country_forward_weight_data =
+                toValueByEdgeOrByMeter(parsed_way.country_weight, parsed_way.country_forward_rate);
         }
     }
     if (parsed_way.backward_travel_mode != TRAVEL_MODE_INACCESSIBLE)
@@ -163,13 +168,16 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
         // fallback to duration as weight
         if (fallback_to_duration)
         {
-            backward_weight_data = backward_duration_data;
+            BOOST_ASSERT(false);
+            city_backward_weight_data = backward_duration_data;
         }
         else
         {
-            BOOST_ASSERT(parsed_way.weight > 0 || parsed_way.backward_rate > 0);
-            backward_weight_data =
-                toValueByEdgeOrByMeter(parsed_way.weight, parsed_way.backward_rate);
+            BOOST_ASSERT(parsed_way.city_weight > 0 || parsed_way.city_backward_rate > 0);
+            city_backward_weight_data =
+                toValueByEdgeOrByMeter(parsed_way.city_weight, parsed_way.city_backward_rate);
+            country_backward_weight_data =
+                toValueByEdgeOrByMeter(parsed_way.country_weight, parsed_way.country_backward_rate);
         }
     }
 
@@ -313,18 +321,18 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
     }
 
     const bool in_forward_direction =
-        (parsed_way.city_forward_speed > 0 || parsed_way.forward_rate > 0 || parsed_way.duration > 0 ||
-         parsed_way.weight > 0) &&
+        (parsed_way.city_forward_speed > 0 || parsed_way.city_forward_rate > 0 || parsed_way.duration > 0 ||
+         parsed_way.city_weight > 0) &&
         (parsed_way.forward_travel_mode != TRAVEL_MODE_INACCESSIBLE);
 
     const bool in_backward_direction =
-        (parsed_way.city_backward_speed > 0 || parsed_way.backward_rate > 0 || parsed_way.duration > 0 ||
-         parsed_way.weight > 0) &&
+        (parsed_way.city_backward_speed > 0 || parsed_way.city_backward_rate > 0 || parsed_way.duration > 0 ||
+         parsed_way.city_weight > 0) &&
         (parsed_way.backward_travel_mode != TRAVEL_MODE_INACCESSIBLE);
 
     // split an edge into two edges if forwards/backwards behavior differ
     const bool split_edge = in_forward_direction && in_backward_direction &&
-                            ((parsed_way.forward_rate != parsed_way.backward_rate) ||
+                            ((parsed_way.city_forward_rate != parsed_way.city_backward_rate) ||
                              (parsed_way.city_forward_speed != parsed_way.city_backward_speed) ||
                              (parsed_way.forward_travel_mode != parsed_way.backward_travel_mode) ||
                              (turn_lane_id_forward != turn_lane_id_backward));
@@ -339,7 +347,8 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
                     InternalExtractorEdge(OSMNodeID{static_cast<std::uint64_t>(first_node.ref())},
                                           OSMNodeID{static_cast<std::uint64_t>(last_node.ref())},
                                           name_id,
-                                          forward_weight_data,
+                                          city_forward_weight_data,
+                                          country_forward_weight_data,
                                           forward_duration_data,
                                           true,
                                           in_backward_direction && !split_edge,
@@ -365,7 +374,8 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
                     InternalExtractorEdge(OSMNodeID{static_cast<std::uint64_t>(first_node.ref())},
                                           OSMNodeID{static_cast<std::uint64_t>(last_node.ref())},
                                           name_id,
-                                          backward_weight_data,
+                                          city_backward_weight_data,
+                                          country_backward_weight_data,
                                           backward_duration_data,
                                           false,
                                           true,

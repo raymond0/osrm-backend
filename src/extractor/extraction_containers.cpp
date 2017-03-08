@@ -531,7 +531,7 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
                 edge_iterator->source_coordinate, target_coord);
 
             bool inTown = edgeStartsInTown[edgeIndex];
-            auto weight = edge_iterator->weight_data(distance);
+            auto weight = inTown ? edge_iterator->city_weight_data(distance) :  edge_iterator->country_weight_data(distance);
             auto duration = edge_iterator->duration_data(distance);
 
             ExtractionSegment extracted_segment(

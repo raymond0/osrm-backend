@@ -308,18 +308,22 @@ void Sol2ScriptingEnvironment::InitContext(LuaScriptingContext &context)
 
     context.state.new_usertype<ExtractionWay>(
         "ResultWay",
-        "forward_speed",
+        "city_forward_speed",
         &ExtractionWay::city_forward_speed,
-        "backward_speed",
+        "city_backward_speed",
         &ExtractionWay::city_backward_speed,
-        /*"country_forward_speed",
+        "country_forward_speed",
         &ExtractionWay::country_forward_speed,
         "country_backward_speed",
-        &ExtractionWay::country_backward_speed,*/
-        "forward_rate",
-        &ExtractionWay::forward_rate,
-        "backward_rate",
-        &ExtractionWay::backward_rate,
+        &ExtractionWay::country_backward_speed,
+        "city_forward_rate",
+        &ExtractionWay::city_forward_rate,
+        "city_backward_rate",
+        &ExtractionWay::city_backward_rate,
+        "country_forward_rate",
+        &ExtractionWay::country_forward_rate,
+        "country_backward_rate",
+        &ExtractionWay::country_backward_rate,
         "name",
         sol::property(&ExtractionWay::GetName, &ExtractionWay::SetName),
         "ref",
@@ -340,8 +344,10 @@ void Sol2ScriptingEnvironment::InitContext(LuaScriptingContext &context)
         &ExtractionWay::is_startpoint,
         "duration",
         &ExtractionWay::duration,
-        "weight",
-        &ExtractionWay::weight,
+        "city_weight",
+        &ExtractionWay::city_weight,
+        "country_weight",
+        &ExtractionWay::country_weight,
         "road_classification",
         &ExtractionWay::road_classification,
         "forward_mode",
@@ -389,8 +395,10 @@ void Sol2ScriptingEnvironment::InitContext(LuaScriptingContext &context)
     context.state.new_usertype<InternalExtractorEdge>("EdgeSource",
                                                       "source_coordinate",
                                                       &InternalExtractorEdge::source_coordinate,
-                                                      "weight",
-                                                      &InternalExtractorEdge::weight_data,
+                                                      "city_weight",
+                                                      &InternalExtractorEdge::city_weight_data,
+                                                      "country_weight",
+                                                      &InternalExtractorEdge::country_weight_data,
                                                       "duration",
                                                       &InternalExtractorEdge::duration_data);
 
@@ -658,7 +666,7 @@ void LuaScriptingContext::ProcessWay(const osmium::Way &way, ExtractionWay &resu
 
     sol::function way_function = state["way_function"];
 
-    way_function(way, result);
+    way_function(way, false, result);
 }
 }
 }

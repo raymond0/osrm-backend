@@ -75,14 +75,15 @@ struct InternalExtractorEdge
                  TRAVEL_MODE_INACCESSIBLE,
                  guidance::TurnLaneType::empty,
                  guidance::RoadClassification()),
-          weight_data(), duration_data()
+          city_weight_data(), country_weight_data(), duration_data()
     {
     }
 
     explicit InternalExtractorEdge(OSMNodeID source,
                                    OSMNodeID target,
                                    NodeID name_id,
-                                   WeightData weight_data,
+                                   WeightData city_weight_data,
+                                   WeightData country_weight_data,
                                    DurationData duration_data,
                                    bool forward,
                                    bool backward,
@@ -110,7 +111,7 @@ struct InternalExtractorEdge
                  travel_mode,
                  lane_description,
                  std::move(road_classification)),
-          weight_data(std::move(weight_data)), duration_data(std::move(duration_data)),
+          city_weight_data(std::move(city_weight_data)), country_weight_data(std::move(country_weight_data)), duration_data(std::move(duration_data)),
           source_coordinate(std::move(source_coordinate))
     {
     }
@@ -118,7 +119,8 @@ struct InternalExtractorEdge
     // data that will be written to disk
     NodeBasedEdgeWithOSM result;
     // intermediate edge weight
-    WeightData weight_data;
+    WeightData city_weight_data;
+    WeightData country_weight_data;
     // intermediate edge duration
     DurationData duration_data;
     // coordinate of the source node
@@ -130,6 +132,7 @@ struct InternalExtractorEdge
         return InternalExtractorEdge(MIN_OSM_NODEID,
                                      MIN_OSM_NODEID,
                                      SPECIAL_NODEID,
+                                     WeightData(),
                                      WeightData(),
                                      DurationData(),
                                      false, // forward
@@ -149,6 +152,7 @@ struct InternalExtractorEdge
         return InternalExtractorEdge(MAX_OSM_NODEID,
                                      MAX_OSM_NODEID,
                                      SPECIAL_NODEID,
+                                     WeightData(),
                                      WeightData(),
                                      DurationData(),
                                      false, // forward

@@ -109,23 +109,42 @@ local profile = {
     'steps'
   },
 
-  speeds = Sequence {
-    highway = {
-      motorway        = 90,
+  city_speeds = Sequence {
+  	highway = {
+   	  motorway        = 90,
       motorway_link   = 45,
       trunk           = 85,
       trunk_link      = 40,
-      primary         = 65,
-      primary_link    = 30,
-      secondary       = 55,
-      secondary_link  = 25,
-      tertiary        = 40,
-      tertiary_link   = 20,
-      unclassified    = 25,
-      residential     = 25,
-      living_street   = 10,
-      service         = 15
+  	  primary         = 65,
+  	  primary_link    = 30,
+  	  secondary       = 55,
+  	  secondary_link  = 25,
+  	  tertiary        = 40,
+  	  tertiary_link   = 20,
+  	  unclassified    = 25,
+  	  residential     = 25,
+  	  living_street   = 10,
+  	  service         = 15
     }
+  },
+  
+  country_speeds = Sequence {
+    highway = {
+	  motorway = 101,
+	  motorway_link = 45,
+	  trunk = 140,
+	  trunk_link = 70,
+	  primary = 150,
+	  primary_link = 75,
+	  secondary = 240,
+	  secondary_link = 120,
+	  tertiary = 50,
+	  tertiary_link = 25,
+	  unclassified = 25,
+	  residential = 25,
+	  living_street = 10,
+	  service = 15,
+	}
   },
 
   service_penalties = {
@@ -282,7 +301,7 @@ function node_function (node, result)
   end
 end
 
-function way_function(way, result)
+function way_function(way, inTown, result)
   -- the intial filtering of ways based on presence of tags
   -- affects processing times significantly, because all ways
   -- have to be checked.
@@ -343,7 +362,7 @@ function way_function(way, result)
     -- compute speed taking into account way type, maxspeed tags, etc.
     'handle_speed',
     'handle_surface',
-    'handle_maxspeed',
+    --'handle_maxspeed',
     'handle_penalties',
 
     -- handle turn lanes and road classification, used for guidance
