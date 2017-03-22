@@ -61,6 +61,7 @@ local profile = {
 
   access_tag_whitelist = Set {
     'yes',
+    'motorcycle',
     'motorcar',
     'motor_vehicle',
     'vehicle',
@@ -84,6 +85,7 @@ local profile = {
   },
 
   access_tags_hierarchy = Sequence {
+    'motorcycle',
     'motorcar',
     'motor_vehicle',
     'vehicle',
@@ -95,7 +97,7 @@ local profile = {
   },
 
   restrictions = Sequence {
-    'motorcar',
+    'motorcycle',
     'motor_vehicle',
     'vehicle'
   },
