@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 
 namespace osrm
 {
@@ -19,15 +20,10 @@ namespace storage
 const constexpr char CANARY[4] = {'O', 'S', 'R', 'M'};
 
 const constexpr char *block_id_to_name[] = {"NAME_CHAR_DATA",
-                                            "NAME_ID_LIST",
-                                            "VIA_NODE_LIST",
+                                            "EDGE_DATA_FILE",
                                             "GRAPH_NODE_LIST",
                                             "GRAPH_EDGE_LIST",
-                                            "COORDINATE_LIST",
-                                            "OSM_NODE_ID_LIST",
-                                            "TURN_INSTRUCTION",
-                                            "TRAVEL_MODE",
-                                            "ENTRY_CLASSID",
+                                            "NODES_FILE",
                                             "R_SEARCH_TREE",
                                             "GEOMETRIES_INDEX",
                                             "GEOMETRIES_NODE_LIST",
@@ -49,9 +45,6 @@ const constexpr char *block_id_to_name[] = {"NAME_CHAR_DATA",
                                             "BEARING_BLOCKS",
                                             "BEARING_VALUES",
                                             "ENTRY_CLASS",
-                                            "LANE_DATA_ID",
-                                            "PRE_TURN_BEARING",
-                                            "POST_TURN_BEARING",
                                             "TURN_LANE_DATA",
                                             "LANE_DESCRIPTION_OFFSETS",
                                             "LANE_DESCRIPTION_MASKS",
@@ -63,15 +56,10 @@ struct DataLayout
     enum BlockID
     {
         NAME_CHAR_DATA = 0,
-        NAME_ID_LIST,
-        VIA_NODE_LIST,
+        EDGE_DATA_FILE,
         GRAPH_NODE_LIST,
         GRAPH_EDGE_LIST,
-        COORDINATE_LIST,
-        OSM_NODE_ID_LIST,
-        TURN_INSTRUCTION,
-        TRAVEL_MODE,
-        ENTRY_CLASSID,
+        NODES_FILE,
         R_SEARCH_TREE,
         GEOMETRIES_INDEX,
         GEOMETRIES_NODE_LIST,
@@ -93,9 +81,6 @@ struct DataLayout
         BEARING_BLOCKS,
         BEARING_VALUES,
         ENTRY_CLASS,
-        LANE_DATA_ID,
-        PRE_TURN_BEARING,
-        POST_TURN_BEARING,
         TURN_LANE_DATA,
         LANE_DESCRIPTION_OFFSETS,
         LANE_DESCRIPTION_MASKS,
@@ -107,15 +92,18 @@ struct DataLayout
     std::array<std::uint64_t, NUM_BLOCKS> num_entries;
     std::array<std::size_t, NUM_BLOCKS> entry_size;
     std::array<std::size_t, NUM_BLOCKS> entry_align;
+    std::array<void *, NUM_BLOCKS> memoryMappedPtrs;
 
     DataLayout() : num_entries(), entry_size(), entry_align() {}
 
     template <typename T> inline void SetBlockSize(BlockID bid, uint64_t entries)
     {
+        std::cout << "Setting block " << block_id_to_name[bid] << " size to " << entries << "\n";
         static_assert(sizeof(T) % alignof(T) == 0, "aligned T* can't be used as an array pointer");
         num_entries[bid] = entries;
         entry_size[bid] = sizeof(T);
         entry_align[bid] = alignof(T);
+        memoryMappedPtrs[bid] = NULL;
     }
 
     inline uint64_t GetBlockSize(BlockID bid) const
@@ -125,7 +113,56 @@ struct DataLayout
         {
             return (num_entries[bid] / 32 + 1) * entry_size[bid];
         }
+        
+        if ( IsMemoryMapped( bid ) )
+        {
+            return 0;
+        }
+        
         return num_entries[bid] * entry_size[bid];
+    }
+    
+    std::string data_file_path;
+    
+    inline bool IsMemoryMapped( BlockID bid ) const
+    {
+        switch (bid)
+        {
+            case NAME_CHAR_DATA:
+            case GRAPH_NODE_LIST:
+            case GRAPH_EDGE_LIST:
+            case EDGE_DATA_FILE:
+            case GEOMETRIES_INDEX:
+            case GEOMETRIES_NODE_LIST:
+            case GEOMETRIES_FWD_WEIGHT_LIST:
+            case GEOMETRIES_REV_WEIGHT_LIST:
+            case GEOMETRIES_FWD_DURATION_LIST:
+            case GEOMETRIES_REV_DURATION_LIST:
+            case HSGR_CHECKSUM:
+            case NODES_FILE:
+            case TURN_WEIGHT_PENALTIES:
+            case TURN_DURATION_PENALTIES:
+            case TURN_LANE_DATA:
+            case BEARING_CLASSID:
+            case BEARING_OFFSETS:
+            case BEARING_BLOCKS:
+            case BEARING_VALUES:
+                return true;
+            case ENTRY_CLASS:
+            case R_SEARCH_TREE:
+            case TIMESTAMP:
+            case FILE_INDEX_PATH:
+            case CORE_MARKER:
+            case DATASOURCES_LIST:
+            case DATASOURCE_NAME_DATA:
+            case DATASOURCE_NAME_OFFSETS:
+            case DATASOURCE_NAME_LENGTHS:
+            case PROPERTIES:
+            case LANE_DESCRIPTION_OFFSETS:
+            case LANE_DESCRIPTION_MASKS:
+            case NUM_BLOCKS:
+                return false;
+        }
     }
 
     inline uint64_t GetSizeOfLayout() const
@@ -165,9 +202,26 @@ struct DataLayout
         return ptr;
     }
 
+    
+    inline void SetBlockPtr(void *blockPtr, BlockID bid)
+    {
+        memoryMappedPtrs[bid] = blockPtr;
+    }
+    
     template <typename T, bool WRITE_CANARY = false>
     inline T *GetBlockPtr(char *shared_memory, BlockID bid) const
     {
+        void *mmPtr = memoryMappedPtrs[bid];
+        
+        std::cout << block_id_to_name[bid] << " IsMapped: " << IsMemoryMapped(bid) << " have ptr " << ( mmPtr != NULL ) << "\n";
+        BOOST_ASSERT ( (IsMemoryMapped(bid) == true) == (( mmPtr != NULL ) == true) );
+        
+        if ( mmPtr != NULL )
+        {
+            std::cout << "Returning memory mapped ptr for " << block_id_to_name[bid] << "\n";
+            return (T *)mmPtr;
+        }
+        
         char *ptr = (char *)GetAlignedBlockPtr(shared_memory, bid);
         if (WRITE_CANARY)
         {

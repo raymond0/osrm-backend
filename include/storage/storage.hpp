@@ -47,7 +47,7 @@ class Storage
     int Run(int max_wait);
 
     void PopulateLayout(DataLayout &layout);
-    void PopulateData(const DataLayout &layout, char *memory_ptr);
+    void PopulateData(DataLayout &layout, char *memory_ptr);
 
   private:
     StorageConfig config;
