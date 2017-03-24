@@ -129,6 +129,8 @@ class ContiguousInternalMemoryDataFacade : public BaseDataFacade
 
     // allocator that keeps the allocation data
     std::unique_ptr<ContiguousBlockAllocator> allocator;
+    
+    std::shared_ptr<CoordinateWrapper> m_coordinateWrapper;
 
     void InitializeChecksumPointer(storage::DataLayout &data_layout, char *memory_block)
     {
@@ -156,6 +158,7 @@ class ContiguousInternalMemoryDataFacade : public BaseDataFacade
     void InitializeRTreePointers(storage::DataLayout &data_layout, char *memory_block)
     {
         BOOST_ASSERT_MSG(!m_nodes_file.empty(), "coordinates must be loaded before r-tree");
+        m_coordinateWrapper = std::make_shared<CoordinateWrapper>(m_nodes_file);
 
         file_index_path = data_layout.data_file_path;
         if (!boost::filesystem::exists(file_index_path))
@@ -171,9 +174,9 @@ class ContiguousInternalMemoryDataFacade : public BaseDataFacade
             new SharedRTree(tree_ptr,
                             data_layout.num_entries[storage::DataLayout::R_SEARCH_TREE],
                             file_index_path,
-                            m_nodes_file));
+                            *m_coordinateWrapper));
         m_geospatial_query.reset(
-            new SharedGeospatialQuery(*m_static_rtree, m_nodes_file, *this));
+            new SharedGeospatialQuery(*m_static_rtree, *m_coordinateWrapper, *this));
     }
 
     void InitializeGraphPointer(storage::DataLayout &data_layout, char *memory_block)

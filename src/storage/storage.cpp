@@ -761,8 +761,8 @@ void Storage::PopulateData(DataLayout &layout, char *memory_ptr)
         uint64_t memVal = *((uint64_t *)memPtr);
         std::cout << entry_class_table.size() << " vs " << memVal << "\n";
 
-        //memPtr += sizeof( uint64_t );
-        //layout.SetBlockPtr(memPtr, DataLayout::ENTRY_CLASS);
+        memPtr += sizeof( uint64_t );
+        layout.SetBlockPtr(memPtr, DataLayout::ENTRY_CLASS);
 
 
 
@@ -815,12 +815,12 @@ void Storage::PopulateData(DataLayout &layout, char *memory_ptr)
 
         if (!entry_class_table.empty())
         {
-            const auto entry_class_ptr = layout.GetBlockPtr<util::guidance::EntryClass, true>(
+            /*const auto entry_class_ptr = layout.GetBlockPtr<util::guidance::EntryClass, true>(
                 memory_ptr, DataLayout::ENTRY_CLASS);
             BOOST_ASSERT(static_cast<std::size_t>(layout.GetBlockSize(DataLayout::ENTRY_CLASS)) >=
                          std::distance(entry_class_table.begin(), entry_class_table.end()) *
                              sizeof(decltype(entry_class_table)::value_type));
-            std::copy(entry_class_table.begin(), entry_class_table.end(), entry_class_ptr);
+            std::copy(entry_class_table.begin(), entry_class_table.end(), entry_class_ptr);*/
         }
     }
 }

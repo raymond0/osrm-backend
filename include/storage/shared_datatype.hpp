@@ -147,8 +147,8 @@ struct DataLayout
             case BEARING_OFFSETS:
             case BEARING_BLOCKS:
             case BEARING_VALUES:
-                return true;
             case ENTRY_CLASS:
+                return true;
             case R_SEARCH_TREE:
             case TIMESTAMP:
             case FILE_INDEX_PATH:
