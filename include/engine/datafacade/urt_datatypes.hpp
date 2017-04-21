@@ -9,6 +9,9 @@
 #ifndef urt_datatypes_h
 #define urt_datatypes_h
 
+//
+//  Routing had failed because we've segmented the data and one of the segments is missing.
+//
 #define ROUTING_FAILED_SEGMENTATION "ROUTING_FAILED_SEGMENTATION"
 
 

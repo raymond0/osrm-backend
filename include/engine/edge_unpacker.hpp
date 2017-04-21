@@ -84,6 +84,12 @@ inline void UnpackCHPath(DataFacadeT &facade,
 
         // If we didn't find anything *still*, then something is broken and someone has
         // called this function with bad values.
+        
+        if ( ! haveSmallestEdge )
+        {
+            throw util::exception( ROUTING_FAILED_SEGMENTATION );
+        }
+        
         BOOST_ASSERT_MSG( haveSmallestEdge, "Invalid smaller edge ID");
 
         // If the edge is a shortcut, we need to add the two halfs to the stack.
