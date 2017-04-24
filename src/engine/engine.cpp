@@ -52,7 +52,7 @@ namespace osrm
 namespace engine
 {
 
-Engine::Engine(const EngineConfig &config)
+Engine::Engine(EngineConfig &config)
     : route_plugin(config.max_locations_viaroute),       //
       table_plugin(config.max_locations_distance_table), //
       nearest_plugin(config.max_results_nearest),        //

@@ -59,7 +59,7 @@ namespace datafacade
 class UrtDataFacade : public BaseDataFacade
 {
 public:
-    explicit UrtDataFacade(const storage::StorageConfig &config)
+    explicit UrtDataFacade(storage::StorageConfig &config)
     {
         LoadGraphs(config);
         LoadNodeFiles( config.ur_shortnodes_paths );
@@ -138,9 +138,9 @@ public:
     }
 
     
-    void LoadGraphs( const storage::StorageConfig &config )
+    void LoadGraphs( storage::StorageConfig &config )
     {
-        for ( const auto &graphPath : config.ur_hsgr_paths )
+        for ( auto &graphPath : config.ur_hsgr_paths )
         {
             try
             {
@@ -163,7 +163,7 @@ public:
                 //
                 string path = graphPath.substr( 0, graphPath.length() - 4 );
                 
-                /* ToDo - fix or remove this const auto new_end_iter =
+                const auto new_end_iter =
                 std::remove_if(config.ur_shortnodes_paths.begin(), config.ur_shortnodes_paths.end(), [&config, path](const string &nodePath)
                 {
                    return nodePath.compare( 0, path.length(), path ) == 0;
@@ -171,12 +171,12 @@ public:
                 config.ur_shortnodes_paths.erase(new_end_iter, config.ur_shortnodes_paths.end()); // remove excess candidates.
                 
                 const auto new_geom_iter =
-                std::remove_if(config.geometryPaths.begin(), config.geometryPaths.end(), [&config, path](const string &geomPath)
+                std::remove_if(config.ur_geometry_paths.begin(), config.ur_geometry_paths.end(), [&config, path](const string &geomPath)
                 {
                    return geomPath.compare( 0, path.length(), path ) == 0;
                 });
-                config.geometryPaths.erase(new_geom_iter, config.geometryPaths.end()); // remove excess candidates.
-                */
+                config.ur_geometry_paths.erase(new_geom_iter, config.ur_geometry_paths.end()); // remove excess candidates.
+                
             }
             
         }
@@ -224,21 +224,20 @@ public:
         //return m_query_graph->GetAdjacentEdgeRange(node);   // RHCALLED
     }
     
-    //shared_ptr< QueryGraph > m_lastQueryGraph;
-    shared_ptr< QueryGraph > QueryGraphForNode( const NodeID node ) const
+    shared_ptr< QueryGraph > m_last_query_graph;
+    shared_ptr< QueryGraph > QueryGraphForNode( const NodeID node )
     {
-        // ToDo - fix cache
-        /*if ( m_lastQueryGraph != nullptr )
+        if ( m_last_query_graph.get() )
         {
-            if ( m_lastQueryGraph->NodeInRange( node ) )
-                return m_lastQueryGraph;
-        }*/
+            if ( m_last_query_graph->NodeInRange( node ) )
+                return m_last_query_graph;
+        }
         
-        for ( const auto graph : m_query_graphs )
+        for ( auto graph : m_query_graphs )
         {
             if ( graph->NodeInRange( node ) )
             {
-                //m_lastQueryGraph = graph;
+                m_last_query_graph = graph;
                 return graph;
             }
         }
@@ -246,7 +245,7 @@ public:
         return nullptr;
     }
     
-    virtual void GetAdjacentEdges( const NodeID node, EdgeArray &edges ) const override final
+    virtual void GetAdjacentEdges( const NodeID node, EdgeArray &edges ) override final
     {
         if ( node == SPECIAL_NODEID )
             return;
@@ -335,23 +334,23 @@ public:
     }
 
     // node and edge information access
-    util::Coordinate GetCoordinateOfNode(const NodeID id) const override final
+    shared_ptr< CoordinatesFile > m_lastCoordinatesFile;
+    util::Coordinate GetCoordinateOfNode(const NodeID id) override final
     {
-        /*if ( m_lastCoordinatesFile != nullptr && m_lastCoordinatesFile->CanResolveNode(id))
+        if ( m_lastCoordinatesFile.get() && m_lastCoordinatesFile->CanResolveNode(id))
         {
             return m_lastCoordinatesFile->GetNodeCoords( id );
-        }*/
+        }
         
         for ( const auto &nodeFile : m_coordinatesFiles )
         {
             if ( nodeFile->CanResolveNode(id) )
             {
-                //m_lastCoordinatesFile = nodeFile;
+                m_lastCoordinatesFile = nodeFile;
                 return nodeFile->GetNodeCoords( id );
             }
         }
         
-        // ToDo
         throw util::exception( ROUTING_FAILED_SEGMENTATION );
     }
 
@@ -361,15 +360,22 @@ public:
         return nodeId;
     }
 
+    shared_ptr< GeometryFile > m_lastGeometryFile;
     virtual std::vector<NodeID> GetUncompressedForwardGeometry(const EdgeID id) override final
     {
         std::vector<NodeID> result_nodes;
+        
+        if ( m_lastGeometryFile.get() && m_lastGeometryFile->CanResolveGeometry( id ) )
+        {
+            m_lastGeometryFile->GetUncompressedForwardGeometry( id, result_nodes );
+            return result_nodes;
+        }
 
         for ( const auto &geomFile : m_geometryFiles )
         {
             if ( geomFile->CanResolveGeometry( id ))
             {
-                //m_lastGeometryFile = geomFile;
+                m_lastGeometryFile = geomFile;
                 geomFile->GetUncompressedForwardGeometry( id, result_nodes );
                 return result_nodes;
             }
@@ -382,11 +388,17 @@ public:
     {
         std::vector<NodeID> result_nodes;
         
+        if ( m_lastGeometryFile.get() && m_lastGeometryFile->CanResolveGeometry( id ) )
+        {
+            m_lastGeometryFile->GetUncompressedReverseGeometry( id, result_nodes );
+            return result_nodes;
+        }
+        
         for ( const auto &geomFile : m_geometryFiles )
         {
             if ( geomFile->CanResolveGeometry( id ))
             {
-                //m_lastGeometryFile = geomFile;
+                m_lastGeometryFile = geomFile;
                 geomFile->GetUncompressedReverseGeometry( id, result_nodes );
                 return result_nodes;
             }

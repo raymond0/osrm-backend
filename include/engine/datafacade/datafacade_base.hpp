@@ -66,7 +66,7 @@ class BaseDataFacade
     virtual EdgeRange GetAdjacentEdgeRange(const NodeID node) const = 0;
     
     // URT Addition
-    virtual void GetAdjacentEdges( const NodeID node, EdgeArray &edges ) const {}
+    virtual void GetAdjacentEdges( const NodeID node, EdgeArray &edges ) {}
 
     // searches for a specific edge
     virtual EdgeID FindEdge(const NodeID from, const NodeID to) const = 0;
@@ -85,7 +85,7 @@ class BaseDataFacade
     virtual bool FindSmallestBackwardEdge(const NodeID from, const NodeID to, EdgeArrayEntryApp &smallest_edge) { BOOST_ASSERT( false ); }
 
     // node and edge information access
-    virtual util::Coordinate GetCoordinateOfNode(const NodeID id) const = 0;
+    virtual util::Coordinate GetCoordinateOfNode(const NodeID id) = 0;
     virtual OSMNodeID GetOSMNodeIDOfNode(const NodeID id) const = 0;
 
     virtual GeometryID GetGeometryIndexForEdgeID(const EdgeID id) const = 0;

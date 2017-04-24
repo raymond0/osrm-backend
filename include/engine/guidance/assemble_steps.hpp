@@ -33,7 +33,7 @@ std::pair<short, short> getDepartBearings(const LegGeometry &leg_geometry);
 std::pair<short, short> getArriveBearings(const LegGeometry &leg_geometry);
 } // ns detail
 
-inline std::vector<RouteStep> assembleSteps(const datafacade::BaseDataFacade &facade,
+inline std::vector<RouteStep> assembleSteps(datafacade::BaseDataFacade &facade,
                                             const std::vector<PathData> &leg_data,
                                             const LegGeometry &leg_geometry,
                                             const PhantomNode &source_node,

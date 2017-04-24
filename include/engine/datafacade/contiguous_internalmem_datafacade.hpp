@@ -504,7 +504,7 @@ class ContiguousInternalMemoryDataFacade : public BaseDataFacade
     }
 
     // node and edge information access
-    util::Coordinate GetCoordinateOfNode(const NodeID id) const override final
+    util::Coordinate GetCoordinateOfNode(const NodeID id) override final
     {
         return m_coordinate_list[id];
     }

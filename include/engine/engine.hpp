@@ -33,7 +33,7 @@ namespace engine
 class Engine final
 {
   public:
-    explicit Engine(const EngineConfig &config);
+    explicit Engine(EngineConfig &config);
 
     Engine(Engine &&) noexcept = delete;
     Engine &operator=(Engine &&) noexcept = delete;
