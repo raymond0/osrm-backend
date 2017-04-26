@@ -53,7 +53,7 @@ namespace engine
 {
 
 Engine::Engine(EngineConfig &config)
-    : route_plugin(config.max_locations_viaroute),       //
+    : route_plugin(config.max_locations_viaroute, routing_progress),       //
       table_plugin(config.max_locations_distance_table), //
       nearest_plugin(config.max_results_nearest),        //
       trip_plugin(config.max_locations_trip),            //

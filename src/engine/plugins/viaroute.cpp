@@ -22,8 +22,8 @@ namespace engine
 namespace plugins
 {
 
-ViaRoutePlugin::ViaRoutePlugin(int max_locations_viaroute)
-    : shortest_path(heaps), alternative_path(heaps), direct_shortest_path(heaps),
+ViaRoutePlugin::ViaRoutePlugin(int max_locations_viaroute, int32_t &routing_progress)
+    : shortest_path(heaps, routing_progress), alternative_path(heaps), direct_shortest_path(heaps),
       max_locations_viaroute(max_locations_viaroute)
 {
 }

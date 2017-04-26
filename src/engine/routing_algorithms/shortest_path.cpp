@@ -288,8 +288,11 @@ void ShortestPathRouting::operator()(const std::shared_ptr<datafacade::BaseDataF
     std::size_t current_leg = 0;
     // this implements a dynamic program that finds the shortest route through
     // a list of vias
+    routing_progress = 0;
     for (const auto &phantom_node_pair : phantom_nodes_vector)
     {
+        routing_progress++;
+
         int new_total_weight_to_forward = INVALID_EDGE_WEIGHT;
         int new_total_weight_to_reverse = INVALID_EDGE_WEIGHT;
 

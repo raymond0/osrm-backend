@@ -130,6 +130,9 @@ class OSRM final
      */
     Status Tile(const TileParameters &parameters, std::string &result) const;
 
+    int32_t RoutingProgress();
+    void ResetRoutingProgress();
+
   private:
     std::unique_ptr<engine::Engine> engine_;
 };

@@ -35,7 +35,7 @@ class ViaRoutePlugin final : public BasePlugin
     const int max_locations_viaroute;
 
   public:
-    explicit ViaRoutePlugin(int max_locations_viaroute);
+    explicit ViaRoutePlugin(int max_locations_viaroute, int32_t &routing_progress);
 
     Status HandleRequest(const std::shared_ptr<datafacade::BaseDataFacade> facade,
                          const api::RouteParameters &route_parameters,

@@ -53,5 +53,9 @@ engine::Status OSRM::Tile(const engine::api::TileParameters &params, std::string
 {
     return engine_->Tile(params, result);
 }
+    
+int32_t OSRM::RoutingProgress() { return engine_ ? engine_->routing_progress : 0; }
+void OSRM::ResetRoutingProgress() { if (engine_) engine_->routing_progress = 0; }
+
 
 } // ns osrm

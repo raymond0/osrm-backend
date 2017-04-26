@@ -38,10 +38,12 @@ class TripPlugin final : public BasePlugin
                                      const std::vector<PhantomNode> &phantom_node_list,
                                      const std::vector<NodeID> &trip,
                                      const bool roundtrip) const;
+    
+    int32_t UNUSED_routing_progress;
 
   public:
     explicit TripPlugin(const int max_locations_trip_)
-        : shortest_path(heaps), duration_table(heaps), max_locations_trip(max_locations_trip_)
+        : shortest_path(heaps, UNUSED_routing_progress), duration_table(heaps), max_locations_trip(max_locations_trip_)
     {
     }
 

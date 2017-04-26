@@ -26,10 +26,11 @@ class ShortestPathRouting final : public BasicRoutingInterface
     using QueryHeap = SearchEngineData::QueryHeap;
     SearchEngineData &engine_working_data;
     const static constexpr bool DO_NOT_FORCE_LOOP = false;
+    int32_t &routing_progress;
 
   public:
-    ShortestPathRouting(SearchEngineData &engine_working_data)
-        : engine_working_data(engine_working_data)
+    ShortestPathRouting(SearchEngineData &engine_working_data, int32_t &routing_progress)
+        : engine_working_data(engine_working_data), routing_progress(routing_progress)
     {
     }
 

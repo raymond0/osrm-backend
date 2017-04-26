@@ -26,9 +26,11 @@ class MatchPlugin : public BasePlugin
     using CandidateLists = routing_algorithms::CandidateLists;
     static const constexpr double DEFAULT_GPS_PRECISION = 5;
     static const constexpr double RADIUS_MULTIPLIER = 3;
+    
+    int32_t UNUSED_routing_progress;
 
     MatchPlugin(const int max_locations_map_matching)
-        : map_matching(heaps, DEFAULT_GPS_PRECISION), shortest_path(heaps),
+        : map_matching(heaps, DEFAULT_GPS_PRECISION), shortest_path(heaps, UNUSED_routing_progress),
           max_locations_map_matching(max_locations_map_matching)
     {
     }

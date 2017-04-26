@@ -47,6 +47,8 @@ class Engine final
     Status Trip(const api::TripParameters &parameters, util::json::Object &result) const;
     Status Match(const api::MatchParameters &parameters, util::json::Object &result) const;
     Status Tile(const api::TileParameters &parameters, std::string &result) const;
+    
+    int32_t routing_progress;
 
   private:
     const plugins::ViaRoutePlugin route_plugin;
