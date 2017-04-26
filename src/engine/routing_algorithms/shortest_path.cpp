@@ -254,7 +254,7 @@ void ShortestPathRouting::UnpackLegs(const std::shared_ptr<datafacade::BaseDataF
 }
 
 void ShortestPathRouting::operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
-                                     const std::vector<PhantomNodes> &phantom_nodes_vector,
+                                     std::vector<PhantomNodes> &phantom_nodes_vector,
                                      const boost::optional<bool> continue_straight_at_waypoint,
                                      InternalRouteResult &raw_route_data) const
 {
@@ -289,8 +289,9 @@ void ShortestPathRouting::operator()(const std::shared_ptr<datafacade::BaseDataF
     // this implements a dynamic program that finds the shortest route through
     // a list of vias
     routing_progress = 0;
-    for (const auto &phantom_node_pair : phantom_nodes_vector)
+    for ( size_t phantomIdx = 0; phantomIdx < phantom_nodes_vector.size(); phantomIdx++ )
     {
+        const PhantomNodes &phantom_node_pair = phantom_nodes_vector[phantomIdx];
         routing_progress++;
 
         int new_total_weight_to_forward = INVALID_EDGE_WEIGHT;
@@ -370,9 +371,33 @@ void ShortestPathRouting::operator()(const std::shared_ptr<datafacade::BaseDataF
         if ((INVALID_EDGE_WEIGHT == new_total_weight_to_forward) &&
             (INVALID_EDGE_WEIGHT == new_total_weight_to_reverse))
         {
-            raw_route_data.shortest_path_length = INVALID_EDGE_WEIGHT;
-            raw_route_data.alternative_path_length = INVALID_EDGE_WEIGHT;
-            return;
+            //
+            // So - occasionally routing fails. We just delete the segment that fails and patch the route up.
+            // This used to just fail, but if we are matching where's the harm in getting a slightly different route?
+            // If we're matching, it's probably a bad coordinate anyway.
+            //
+            // Only if this is a complete route is this really still an error.
+            //
+            if ( phantom_nodes_vector.size() > 1 )
+            {
+                if ( phantomIdx != phantom_nodes_vector.size() - 1 )
+                {
+                    PhantomNodes &next_phantom_node_pair = phantom_nodes_vector[phantomIdx + 1];
+                    BOOST_ASSERT( phantom_node_pair.target_phantom == next_phantom_node_pair.source_phantom );
+                    next_phantom_node_pair.source_phantom = phantom_node_pair.source_phantom;
+                }
+                
+                phantom_nodes_vector.erase( phantom_nodes_vector.begin() + phantomIdx );
+                phantomIdx--;
+                
+                continue;
+            }
+            else
+            {
+                raw_route_data.shortest_path_length = INVALID_EDGE_WEIGHT;
+                raw_route_data.alternative_path_length = INVALID_EDGE_WEIGHT;
+                return;
+            }
         }
 
         // we need to figure out how the new legs connect to the previous ones

@@ -83,7 +83,7 @@ class ShortestPathRouting final : public BasicRoutingInterface
                     InternalRouteResult &raw_route_data) const;
 
     void operator()(const std::shared_ptr<datafacade::BaseDataFacade> facade,
-                    const std::vector<PhantomNodes> &phantom_nodes_vector,
+                    std::vector<PhantomNodes> &phantom_nodes_vector,
                     const boost::optional<bool> continue_straight_at_waypoint,
                     InternalRouteResult &raw_route_data) const;
 };
