@@ -121,6 +121,16 @@ class RouteAPI : public BaseAPI
                                                            phantoms.target_phantom,
                                                            reversed_source,
                                                            reversed_target);
+            
+            //
+            //  Remove last coord from route
+            //
+            bool is_end_leg = idx == legs.size() - 1;
+            if ( is_end_leg )
+            {
+                leg_geometry.locations.pop_back();
+            }
+            
             auto leg = guidance::assembleLeg(facade,
                                              path_data,
                                              leg_geometry,

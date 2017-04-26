@@ -42,8 +42,8 @@ inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
     LegGeometry geometry;
 
     // segment 0 first and last
-    geometry.segment_offsets.push_back(0);
-    geometry.locations.push_back(source_node.location);
+    //geometry.segment_offsets.push_back(0);
+    //geometry.locations.push_back(source_node.location);
 
     //                          u       *      v
     //                          0 -- 1 -- 2 -- 3
@@ -59,12 +59,12 @@ inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
 
     auto cumulative_distance = 0.;
     auto current_distance = 0.;
-    auto prev_coordinate = geometry.locations.front();
+    //auto prev_coordinate = geometry.locations.front();
     for (const auto &path_point : leg_data)
     {
         auto coordinate = facade.GetCoordinateOfNode(path_point.turn_via_node);
-        current_distance =
-            util::coordinate_calculation::haversineDistance(prev_coordinate, coordinate);
+        current_distance = 0;
+            //util::coordinate_calculation::haversineDistance(prev_coordinate, coordinate);
         cumulative_distance += current_distance;
 
         // all changes to this check have to be matched with assemble_steps
@@ -75,7 +75,7 @@ inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
             cumulative_distance = 0.;
         }
 
-        prev_coordinate = coordinate;
+        //prev_coordinate = coordinate;
         geometry.annotations.emplace_back(
             LegGeometry::Annotation{current_distance,
                                     path_point.duration_until_turn / 10.,
@@ -84,11 +84,11 @@ inline LegGeometry assembleGeometry(datafacade::BaseDataFacade &facade,
         geometry.locations.push_back(std::move(coordinate));
         geometry.osm_node_ids.push_back(facade.GetOSMNodeIDOfNode(path_point.turn_via_node));
     }
-    current_distance =
-        util::coordinate_calculation::haversineDistance(prev_coordinate, target_node.location);
+    current_distance = 0;
+        //util::coordinate_calculation::haversineDistance(prev_coordinate, target_node.location);
     cumulative_distance += current_distance;
     // segment leading to the target node
-    geometry.segment_distances.push_back(cumulative_distance);
+    //geometry.segment_distances.push_back(cumulative_distance);
 
     const std::vector<DatasourceID> forward_datasources =
         facade.GetUncompressedForwardDatasources(target_node.packed_geometry_id);
