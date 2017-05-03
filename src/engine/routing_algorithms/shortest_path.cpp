@@ -378,14 +378,13 @@ void ShortestPathRouting::operator()(const std::shared_ptr<datafacade::BaseDataF
             //
             // Only if this is a complete route is this really still an error.
             //
-            if ( phantom_nodes_vector.size() > 1 )
+            // We can't apply this workaround at the end of a route, as we actually have to reach the destination.
+            //
+            if ( phantomIdx != phantom_nodes_vector.size() - 1 )
             {
-                if ( phantomIdx != phantom_nodes_vector.size() - 1 )
-                {
-                    PhantomNodes &next_phantom_node_pair = phantom_nodes_vector[phantomIdx + 1];
-                    BOOST_ASSERT( phantom_node_pair.target_phantom == next_phantom_node_pair.source_phantom );
-                    next_phantom_node_pair.source_phantom = phantom_node_pair.source_phantom;
-                }
+                PhantomNodes &next_phantom_node_pair = phantom_nodes_vector[phantomIdx + 1];
+                BOOST_ASSERT( phantom_node_pair.target_phantom == next_phantom_node_pair.source_phantom );
+                next_phantom_node_pair.source_phantom = phantom_node_pair.source_phantom;
                 
                 phantom_nodes_vector.erase( phantom_nodes_vector.begin() + phantomIdx );
                 phantomIdx--;
