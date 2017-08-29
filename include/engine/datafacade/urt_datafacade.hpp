@@ -722,7 +722,7 @@ public:
 
     EntryClassID GetEntryClassID(const EdgeID eid) const override final
     {
-        EntryClassID ecid;
+        EntryClassID ecid = 0;
         return ecid;
     }
 
