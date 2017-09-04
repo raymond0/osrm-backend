@@ -125,7 +125,7 @@ class RouteAPI : public BaseAPI
             //
             //  Remove last coord from route
             //
-            bool is_end_leg = idx == legs.size() - 1;
+            bool is_end_leg = idx == number_of_legs - 1;
             if ( is_end_leg )
             {
                 leg_geometry.locations.pop_back();
