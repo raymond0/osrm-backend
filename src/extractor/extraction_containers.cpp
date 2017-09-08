@@ -269,8 +269,9 @@ void ExtractionContainers::PrepareNodes()
 }
 
 
-static tbb::atomic<size_t> country = 0, city = 0, count = 0;
-size_t edgesQueued = 0;
+static tbb::atomic<size_t> country = 0, city = 0, processedCount = 0;
+size_t edgesQueued = 0, totalEdges = 0;
+const size_t MAX_QUEUE_SIZE = 100000;
     
 #define EDGE_MULTI_THREAD
 #ifdef EDGE_MULTI_THREAD
@@ -307,14 +308,14 @@ public:
             country++;
         }
         
-        count++;
+        processedCount++;
         
-        if ( count % 100000 == 0 )
+        if ( processedCount % 100000 == 0 )
         {
             size_t countryTemp = country;
             size_t cityTemp = city;
-            size_t countTemp = count;
-            size_t percent = (countTemp * 100) / edgesQueued;
+            size_t countTemp = processedCount;
+            size_t percent = (countTemp * 100) / totalEdges;
             std::cout << "Country: " << countryTemp << ", city: " << cityTemp <<
             ", " << countTemp << "/" << edgesQueued << " = " << percent << "%\n";
         }
@@ -424,6 +425,7 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
         TIMER_START(compute_weights);
         
 #ifdef EDGE_MULTI_THREAD
+        totalEdges = all_edges_list.size();
         graph g;
         broadcast_node<ProcessEdgeClassDataPtr> input(g);
         function_node<ProcessEdgeClassDataPtr> processor( g, unlimited, ProcessEdgeClassDataClass());
@@ -473,6 +475,11 @@ void ExtractionContainers::PrepareEdges(ScriptingEnvironment &scripting_environm
                                                                                      edgeStartsInTown[edgeIndex]);
             input.try_put( dataPtr );
             edgesQueued++;
+            
+            while (edgesQueued - processedCount > MAX_QUEUE_SIZE)
+            {
+                sleep(1);
+            }
 #else
             ProcessEdgeItem(distance, boundaryList,
                             external_to_internal_node_id_map,
